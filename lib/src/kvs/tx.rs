@@ -44,6 +44,8 @@ pub struct Transaction {
 
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Inner {
+	#[cfg(feature = "kv-dynamodb")]
+	DynamoDB(super::dynamodb::Transaction),
 	#[cfg(feature = "kv-mem")]
 	Mem(super::mem::Transaction),
 	#[cfg(feature = "kv-rocksdb")]
@@ -60,6 +62,8 @@ impl fmt::Display for Transaction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		#![allow(unused_variables)]
 		match &self.inner {
+			#[cfg(feature = "kv-dynamodb")]
+			Inner::DynamoDB(_) => write!(f, "dynamodb"),
 			#[cfg(feature = "kv-mem")]
 			Inner::Mem(_) => write!(f, "memory"),
 			#[cfg(feature = "kv-rocksdb")]
@@ -91,6 +95,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Closed");
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.closed(),
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -128,6 +137,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Cancel");
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.cancel().await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -165,6 +179,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Commit");
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.commit().await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -204,6 +223,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Del {:?}", key);
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.del(key).await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -243,6 +267,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Exi {:?}", key);
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.exi(key).await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -282,6 +311,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Get {:?}", key);
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.get(key).await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -322,6 +356,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Set {:?} => {:?}", key, val);
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.set(key, val).await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -362,6 +401,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Put {:?} => {:?}", key, val);
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.put(key, val).await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -403,6 +447,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Scan {:?} - {:?}", rng.start, rng.end);
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.scan(rng, limit).await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -443,6 +492,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Putc {:?} if {:?} => {:?}", key, chk, val);
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.putc(key, val, chk).await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),
@@ -483,6 +537,11 @@ impl Transaction {
 		#[cfg(debug_assertions)]
 		trace!(target: LOG, "Delc {:?} if {:?}", key, chk);
 		match self {
+			#[cfg(feature = "kv-dynamodb")]
+			Transaction {
+				inner: Inner::DynamoDB(v),
+				..
+			} => v.delc(key, chk).await,
 			#[cfg(feature = "kv-mem")]
 			Transaction {
 				inner: Inner::Mem(v),

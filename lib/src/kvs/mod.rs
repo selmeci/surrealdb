@@ -1,5 +1,6 @@
 mod cache;
 mod ds;
+mod dynamodb;
 mod fdb;
 mod indxdb;
 mod kv;

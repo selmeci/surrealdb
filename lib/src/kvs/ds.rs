@@ -35,12 +35,16 @@ pub(super) enum Inner {
 	TiKV(super::tikv::Datastore),
 	#[cfg(feature = "kv-fdb")]
 	FDB(super::fdb::Datastore),
+	#[cfg(feature = "kv-dynamodb")]
+	DynamoDB(super::dynamodb::Datastore),
 }
 
 impl fmt::Display for Datastore {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		#![allow(unused_variables)]
 		match &self.inner {
+			#[cfg(feature = "kv-dynamodb")]
+			Inner::DynamoDB(_) => write!(f, "dynamodb"),
 			#[cfg(feature = "kv-mem")]
 			Inner::Mem(_) => write!(f, "memory"),
 			#[cfg(feature = "kv-rocksdb")]
@@ -95,6 +99,18 @@ impl Datastore {
 	/// # Ok(())
 	/// # }
 	/// ```
+	///
+	/// Or to connect to a dynamodb-backed distributed store without Txn support:
+	///
+	/// ```rust,no_run
+	/// # use surrealdb::kvs::Datastore;
+	/// # use surrealdb::err::Error;
+	/// # #[tokio::main]
+	/// # async fn main() -> Result<(), Error> {
+	/// let ds = Datastore::new("dynamodb://table_name").await?;
+	/// # Ok(())
+	/// # }
+	/// ```
 	pub async fn new(path: &str) -> Result<Datastore, Error> {
 		match path {
 			"memory" => {
@@ -127,6 +143,22 @@ impl Datastore {
 
 				#[cfg(not(feature = "kv-rocksdb"))]
 				return Err(Error::Ds("Cannot connect to the `rocksdb` storage engine as it is not enabled in this build of SurrealDB".to_owned()));
+			}
+			s if s.starts_with("dynamodb:") => {
+				#[cfg(feature = "kv-dynamodb")]
+				{
+					info!(target: LOG, "Starting dynamodb store at {}", path);
+					let s = s.trim_start_matches("dynamodb://");
+					let s = s.trim_start_matches("dynamodb:");
+					let v = super::dynamodb::Datastore::new(s).await.map(|v| Datastore {
+						inner: Inner::DynamoDB(v),
+					});
+					info!(target: LOG, "Started dynamodb store at {}", path);
+					v
+				}
+
+				#[cfg(not(feature = "kv-dynamodb"))]
+				return Err(Error::Ds("Cannot connect to the `dynamodb` storage engine as it is not enabled in this build of SurrealDB".to_owned()));
 			}
 			// Parse and initiate an RocksDB database
 			s if s.starts_with("rocksdb:") => {
@@ -221,6 +253,11 @@ impl Datastore {
 	pub async fn transaction(&self, write: bool, lock: bool) -> Result<Transaction, Error> {
 		#![allow(unused_variables)]
 		let inner = match &self.inner {
+			#[cfg(feature = "kv-dynamodb")]
+			Inner::DynamoDB(v) => {
+				let tx = v.transaction(write, lock).await?;
+				super::tx::Inner::DynamoDB(tx)
+			}
 			#[cfg(feature = "kv-mem")]
 			Inner::Mem(v) => {
 				let tx = v.transaction(write, lock).await?;
