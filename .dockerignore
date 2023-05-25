@@ -1,3 +1,8 @@
 *
+!aws_lambda
+!src
+!lib
+!Cargo.toml
+!build.rs
 !amd64/surreal
 !arm64/surreal
