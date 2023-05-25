@@ -5,6 +5,7 @@
 	feature = "kv-rocksdb",
 	feature = "kv-fdb",
 	feature = "kv-indxdb",
+	feature = "kv-dynamodb",
 ))]
 #[derive(Debug)]
 pub struct Strict;
