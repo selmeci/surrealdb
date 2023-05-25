@@ -28,6 +28,7 @@ Temporary Items
 **/*.rs.bk
 *.db
 *.sw?
+infrastructure/.terraform.lock.hcl
 
 # -----------------------------------
 # Folders
@@ -40,6 +41,7 @@ Temporary Items
 /bin/
 /docker/
 /.direnv/
+/infrastructure/.terraform
 
 # -----------------------------------
 # Specific
