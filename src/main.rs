@@ -5,7 +5,7 @@
 //! This binary can be used to start a database server instance using an embedded
 //! in-memory datastore, or an embedded datastore persisted to disk. In addition, it
 //! can be used in distributed mode by connecting to a distributed [TiKV](https://tikv.org)
-//! key-value store.
+//! key-value store or AWS DynamoDB without transactional support.
 
 #![deny(clippy::mem_forget)]
 #![forbid(unsafe_code)]
