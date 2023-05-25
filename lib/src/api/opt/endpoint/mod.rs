@@ -3,6 +3,8 @@ mod http;
 #[cfg(feature = "protocol-ws")]
 mod ws;
 
+#[cfg(feature = "kv-dynamodb")]
+mod dynamodb;
 #[cfg(feature = "kv-fdb")]
 mod fdb;
 #[cfg(feature = "kv-indxdb")]
