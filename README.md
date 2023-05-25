@@ -95,6 +95,7 @@ View the [features](https://surrealdb.com/features), the latest [releases](https
 - [Features](#features)
 - [Documentation](#documentation)
 - [Installation](#installation)
+	- [AWS Lambda Deployment](#aws_lambda)
 	- [Install on macOS](#install-on-macos)
 	- [Install on Linux](#install-on-linux)
 	- [Install on Windows](#install-on-windows)
@@ -140,6 +141,22 @@ For guidance on installation, development, deployment, and administration, see o
 <h2><img height="20" src="./img/installation.svg">&nbsp;&nbsp;Installation</h2>
 
 SurrealDB is designed to be simple to install and simple to run - using just one command from your terminal. In addition to traditional installation, SurrealDB can be installed and run with HomeBrew, Docker, or using any other container orchestration tool such as Docker Compose, Docker Swarm, Rancher, or in Kubernetes.
+
+<h4><a href="https://surrealdb.com/install#gh-dark-mode-only"><img width="20" src="./img/white/linux.svg"></a><a href="https://surrealdb.com/install#gh-light-mode-only"><img width="20" src="./img/black/linux.svg"></a>
+&nbsp;Deploy AWS Lambda
+</h4>
+
+You can deploy SurrealDB in Serveless mode with Terraform.
+
+Update your configuration in:
+1. `variables.tf`
+2. `main.tf` - find TODO comments
+
+```bash
+cd infrastructure
+terraform init
+terraform apply
+```
 
 <h4><a href="https://surrealdb.com/install#gh-dark-mode-only"><img width="20" src="./img/white/apple.svg"></a><a href="https://surrealdb.com/install#gh-light-mode-only"><img width="20" src="./img/black/apple.svg"></a>
 &nbsp;Install on macOS
