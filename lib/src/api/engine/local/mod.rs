@@ -301,6 +301,11 @@ pub struct TiKv;
 #[derive(Debug)]
 pub struct FDb;
 
+#[cfg(feature = "kv-dynamodb")]
+#[cfg_attr(docsrs, doc(cfg(feature = "kv-dynamodb")))]
+#[derive(Debug)]
+pub struct DynamoDb;
+
 /// An embedded database
 ///
 /// Authentication methods (`signup`, `signin`, `authentication` and `invalidate`) are not availabe
