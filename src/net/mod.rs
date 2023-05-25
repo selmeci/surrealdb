@@ -21,11 +21,14 @@ mod version;
 
 use crate::cli::CF;
 use crate::err::Error;
-use warp::Filter;
+use warp::reject::Reject;
+use warp::{Filter, Reply};
 
 const LOG: &str = "surrealdb::net";
 
-pub async fn init() -> Result<(), Error> {
+pub fn warp_routes(
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone + Sync + Send + 'static
+{
 	// Setup web routes
 	let net = index::config()
 		// Version endpoint
@@ -53,7 +56,7 @@ pub async fn init() -> Result<(), Error> {
 		// Catch all errors
 		.recover(fail::recover)
 		// End routes setup
-	;
+		;
 	// Specify a generic version header
 	let net = net.with(head::version());
 	// Specify a generic server header
@@ -64,6 +67,12 @@ pub async fn init() -> Result<(), Error> {
 	let net = net.with(log::write());
 	// Trace requests
 	let net = net.with(warp::trace::request());
+	net
+}
+
+#[cfg(not(feature = "aws-lambda"))]
+pub async fn init() -> Result<(), Error> {
+	let net = warp_routes();
 
 	// Get local copy of options
 	let opt = CF.get().unwrap();
