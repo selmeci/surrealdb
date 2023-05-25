@@ -93,6 +93,21 @@ impl Connection for Any {
 					);
 				}
 
+				"dynamodb" => {
+					#[cfg(feature = "kv-dynamodb")]
+					{
+						engine::local::wasm::router(address, conn_tx, route_rx);
+						if let Err(error) = conn_rx.into_recv_async().await? {
+							return Err(error);
+						}
+					}
+
+					#[cfg(not(feature = "kv-dynamodb"))]
+					return Err(
+						DbError::Ds("Cannot connect to the `dynamodb` storage engine as it is not enabled in this build of SurrealDB".to_owned()).into()
+					);
+				}
+
 				"file" | "rocksdb" => {
 					#[cfg(feature = "kv-rocksdb")]
 					{

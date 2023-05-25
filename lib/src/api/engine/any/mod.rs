@@ -25,13 +25,9 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> surrealdb::Result<()> {
-//!     let db = connect("ws://localhost:8000").await?;
+//!     let db = connect("dynamodb://surrealdb").await?;
 //!
-//!     // Signin as a namespace, database, or root user
-//!     db.signin(Root {
-//!         username: "root",
-//!         password: "root",
-//!     }).await?;
+//!
 //!
 //!     // Select a specific namespace / database
 //!     db.use_ns("namespace").use_db("database").await?;
@@ -299,6 +295,9 @@ impl Surreal<Any> {
 ///
 /// // Instantiate a TiKV-backed instance
 /// let db = connect("tikv://localhost:2379").await?;
+///
+/// // Instantiate a TiKV-backed instance
+/// let db = connect("dynamodb://MyTable").await?;
 ///
 /// // Instantiate a FoundationDB-backed instance
 /// let db = connect("fdb://fdb.cluster").await?;
