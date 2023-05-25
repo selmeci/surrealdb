@@ -14,6 +14,17 @@ pub struct Config {
 	pub key: Option<String>,
 }
 
+#[cfg(feature = "aws-lambda")]
+pub struct LambdaConfig {
+	pub strict: bool,
+	pub table: String,
+	pub stage: String,
+	pub user: String,
+	pub pass: Option<String>,
+	pub log: String,
+}
+
+#[cfg(not(feature = "aws-lambda"))]
 pub fn init(matches: &clap::ArgMatches) {
 	// Parse the server binding address
 	let bind = matches.value_of("bind").unwrap().parse::<SocketAddr>().unwrap();
@@ -37,5 +48,19 @@ pub fn init(matches: &clap::ArgMatches) {
 		pass,
 		crt,
 		key,
+	});
+}
+
+#[cfg(feature = "aws-lambda")]
+pub fn init(config: &LambdaConfig) {
+	// Store the new config object
+	let _ = CF.set(Config {
+		strict: config.strict,
+		bind: "127.0.0.1:80".parse::<SocketAddr>().unwrap(), // ignored for AWS Lambda
+		path: format!("dynamodb://{}", config.table),
+		user: config.user.to_owned(),
+		pass: config.pass.to_owned(),
+		crt: None,
+		key: None,
 	});
 }
