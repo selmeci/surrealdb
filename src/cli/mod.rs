@@ -17,6 +17,11 @@ use std::process::ExitCode;
 use tracing::Level;
 use tracing_subscriber::EnvFilter;
 
+#[cfg(feature = "aws-lambda")]
+pub use config::LambdaConfig;
+#[cfg(feature = "aws-lambda")]
+pub use start::init as start;
+
 pub const LOG: &str = "surrealdb::cli";
 
 const INFO: &str = "
@@ -73,6 +78,7 @@ fn path_valid(v: &str) -> Result<(), String> {
 		v if v.starts_with("file:") => Ok(()),
 		v if v.starts_with("rocksdb:") => Ok(()),
 		v if v.starts_with("tikv:") => Ok(()),
+		v if v.starts_with("dynamodb:") => Ok(()),
 		v if v.starts_with("fdb:") => Ok(()),
 		_ => Err(String::from("Provide a valid database path parameter")),
 	}
@@ -81,7 +87,8 @@ fn path_valid(v: &str) -> Result<(), String> {
 fn conn_valid(v: &str) -> Result<(), String> {
 	let scheme = split_endpoint(v).0;
 	match scheme {
-		"http" | "https" | "ws" | "wss" | "fdb" | "mem" | "rocksdb" | "file" | "tikv" => Ok(()),
+		"http" | "https" | "ws" | "wss" | "fdb" | "mem" | "rocksdb" | "file" | "tikv"
+		| "dynamodb" => Ok(()),
 		_ => Err(String::from("Provide a valid database connection string")),
 	}
 }
@@ -135,6 +142,13 @@ fn log_valid(v: &str) -> Result<String, String> {
 	}
 }
 
+#[cfg(feature = "aws-lambda")]
+pub fn init() -> ExitCode {
+	error!(target: LOG, "Cannot init server in AWS Lambda mode");
+	return ExitCode::FAILURE;
+}
+
+#[cfg(not(feature = "aws-lambda"))]
 pub fn init() -> ExitCode {
 	let setup = Command::new("SurrealDB command-line interface and server")
 		.about(INFO)
