@@ -4,7 +4,6 @@ resource "aws_dynamodb_table" "surrealdb" {
   stream_enabled   = true
   stream_view_type = "NEW_AND_OLD_IMAGES"
   hash_key         = "pk"
-  range_key        = "key"
 
 
   point_in_time_recovery {
@@ -17,13 +16,8 @@ resource "aws_dynamodb_table" "surrealdb" {
   }
 
   attribute {
-    name = "key"
-    type = "B"
-  }
-
-  attribute {
-    name = "bucket"
-    type = "B"
+    name = "gsi1pk"
+    type = "N"
   }
 
   ttl {
@@ -32,14 +26,14 @@ resource "aws_dynamodb_table" "surrealdb" {
   }
 
   global_secondary_index {
-    name            = "GSI1"
-    hash_key        = "bucket"
-    range_key       = "key"
-    projection_type = "ALL"
+    name               = "GSI1"
+    hash_key           = "gsi1pk"
+    range_key          = "pk"
+    projection_type    = "KEYS_ONLY"
   }
 
   tags = {
-    Name        = "SurrealDb"
+    Name        = var.lambda_name
     Environment = var.stage
   }
 }
