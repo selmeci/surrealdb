@@ -148,11 +148,15 @@ impl Datastore {
 				#[cfg(feature = "kv-dynamodb")]
 				{
 					info!(target: LOG, "Starting dynamodb store at {}", path);
-					let s = s.trim_start_matches("dynamodb://");
-					let s = s.trim_start_matches("dynamodb:");
-					let v = super::dynamodb::Datastore::new(s).await.map(|v| Datastore {
-						inner: Inner::DynamoDB(v),
-					});
+					let pattern = r"^dynamodb://([^?]+)(?:\?shards=(\d+))?$";
+					let re = regex::Regex::new(pattern).unwrap();
+					let captures = re.captures(s).expect("Invalid DynamoDB path");
+					let table = captures.get(1).unwrap().as_str().to_string();
+					let shards = captures.get(2).map_or(1, |m| m.as_str().parse().unwrap_or(1));
+					let v =
+						super::dynamodb::Datastore::new(table, shards).await.map(|v| Datastore {
+							inner: Inner::DynamoDB(v),
+						});
 					info!(target: LOG, "Started dynamodb store at {}", path);
 					v
 				}
