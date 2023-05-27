@@ -8,26 +8,16 @@ use aws_sdk_dynamodb::operation::delete_item::DeleteItemError;
 use aws_sdk_dynamodb::operation::put_item::builders::PutItemFluentBuilder;
 use aws_sdk_dynamodb::operation::put_item::PutItemError;
 use aws_sdk_dynamodb::primitives::Blob;
-use aws_sdk_dynamodb::types::AttributeValue;
+use aws_sdk_dynamodb::types::{AttributeValue, KeysAndAttributes};
 use aws_sdk_dynamodb::Client;
+use rand::Rng;
+use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::Arc;
 
-fn bucket(key: &[u8]) -> Vec<u8> {
-	let mut result = Vec::new();
-	let mut zero_count = 0;
-
-	for &num in key.iter() {
-		result.push(num);
-		if num == 0 {
-			zero_count += 1;
-			if zero_count == 3 {
-				break;
-			}
-		}
-	}
-
-	result
+fn shard(shards: &usize) -> usize {
+	let mut rng = rand::thread_rng();
+	rng.gen_range(0usize..*shards)
 }
 
 ///
@@ -35,17 +25,17 @@ fn bucket(key: &[u8]) -> Vec<u8> {
 /// This Datastore does not support transactions
 ///
 /// Requirements on table:
-/// - Partition key is `Binary` with name `pk`
-/// - Sort key is `Binary` with name `key`
+/// - Partition key is `Binary` with name `key`
 ///
 /// Requirement os index:
 /// - index name: `GSI1`
-/// - Partition key is `Binary` with name `bucket`
+/// - Partition key is `Binary` with name `gsi1pk`
 /// - Sort key is `Binary` with name `key`
 ///
 pub struct Datastore {
 	client: Arc<Client>,
 	table: Arc<String>,
+	shards: usize,
 }
 
 pub struct Transaction {
@@ -57,16 +47,19 @@ pub struct Transaction {
 	client: Arc<Client>,
 	// table
 	table: Arc<String>,
+	// number of shards
+	shards: usize,
 }
 
 impl Datastore {
 	/// Open a new database from ENV
-	pub async fn new(table: &str) -> Result<Datastore, Error> {
+	pub async fn new(table: String, shards: usize) -> Result<Datastore, Error> {
 		let config = aws_config::load_from_env().await;
 		let client = Arc::new(Client::new(&config));
 		Ok(Datastore {
 			client,
-			table: Arc::new(String::from(table)),
+			table: Arc::new(table),
+			shards,
 		})
 	}
 	/// Start a new transaction
@@ -76,6 +69,7 @@ impl Datastore {
 			rw: write,
 			client: Arc::clone(&self.client),
 			table: Arc::clone(&self.table),
+			shards: self.shards,
 		})
 	}
 }
@@ -87,15 +81,14 @@ impl Transaction {
 		V: Into<Val>,
 	{
 		let key = key.into();
-		let bucket = bucket(&key);
+		let shard = shard(&self.shards);
 		let key = AttributeValue::B(Blob::new(key));
 		self.client
 			.put_item()
 			.table_name(self.table.as_ref())
-			.item("pk", key.clone())
-			.item("key", key)
+			.item("pk", key)
 			.item("value", AttributeValue::B(Blob::new(val.into())))
-			.item("bucket", AttributeValue::B(Blob::new(bucket)))
+			.item("gsi1pk", AttributeValue::N(shard.to_string()))
 	}
 
 	fn build_delete_request<K>(&self, key: K) -> DeleteItemFluentBuilder
@@ -104,11 +97,7 @@ impl Transaction {
 	{
 		let key = key.into();
 		let key = AttributeValue::B(Blob::new(key));
-		self.client
-			.delete_item()
-			.table_name(self.table.as_ref())
-			.key("pk", key.clone())
-			.key("key", key)
+		self.client.delete_item().table_name(self.table.as_ref()).key("pk", key)
 	}
 
 	/// Check if closed
@@ -161,8 +150,7 @@ impl Transaction {
 			.client
 			.get_item()
 			.table_name(self.table.as_ref())
-			.key("pk", key.clone())
-			.key("key", key)
+			.key("pk", key)
 			.attributes_to_get("pk")
 			.send()
 			.await
@@ -188,8 +176,7 @@ impl Transaction {
 			.client
 			.get_item()
 			.table_name(self.table.as_ref())
-			.key("pk", key.clone())
-			.key("key", key)
+			.key("pk", key)
 			.send()
 			.await
 			.map_err(|err| Error::Ds(err.to_string()))?;
@@ -362,47 +349,119 @@ impl Transaction {
 		if self.ok {
 			return Err(Error::TxFinished);
 		}
+		let from = rng.start.into();
+		let to = rng.end.into();
 		// Scan the keys
-		let rng_start = rng.start.into();
-		let rng_end = rng.end.into();
-		let bucket = bucket(&rng_start);
-		let from = AttributeValue::B(Blob::new(rng_start));
-		let to = AttributeValue::B(Blob::new(rng_end));
-		let res = self
-			.client
-			.query()
-			.table_name(self.table.as_ref())
-			.index_name("GSI1")
-			.key_condition_expression("#bucket = :bucket and #key between :from and :to")
-			.expression_attribute_names("#bucket", "bucket")
-			.expression_attribute_names("#key", "key")
-			.expression_attribute_values(":bucket", AttributeValue::B(Blob::new(bucket)))
-			.expression_attribute_values(":from", from)
-			.expression_attribute_values(":to", to)
-			.limit(limit as i32)
-			.send()
-			.await
-			.map_err(|err| Error::Ds(err.to_string()))?;
-		// Return result
-		let items = res.items.map_or(vec![], |items| {
-			items
-				.into_iter()
-				.map(|mut item| {
-					let key_att = item.remove("key").expect("key is defined in item");
-					let value_att = item.remove("value").expect("value is defined in item");
-					let key = match key_att {
-						AttributeValue::B(blob) => blob.into_inner(),
-						_ => unreachable!("key is not a blob"),
-					};
+		let from = AttributeValue::B(Blob::new(from));
+		let to = AttributeValue::B(Blob::new(to));
 
-					let value = match value_att {
-						AttributeValue::B(blob) => blob.into_inner(),
-						_ => unreachable!("value is not a blob"),
-					};
-					(key, value)
-				})
-				.collect::<Vec<(Key, Val)>>()
+		let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<Vec<Key>, Error>>(10);
+		for bucket in 0usize..self.shards {
+			let tx = tx.clone();
+			let client = Arc::clone(&self.client);
+			let table = Arc::clone(&self.table);
+			let f = from.clone();
+			let t = to.clone();
+
+			tokio::spawn(async move {
+				let keys = client
+					.query()
+					.table_name(table.as_ref())
+					.index_name("GSI1")
+					.key_condition_expression("#gsi1pk = :gsi1pk and #pk between :from and :to")
+					.expression_attribute_names("#gsi1pk", "gsi1pk")
+					.expression_attribute_names("#pk", "pk")
+					.expression_attribute_values(":gsi1pk", AttributeValue::N(bucket.to_string()))
+					.expression_attribute_values(":from", f)
+					.expression_attribute_values(":to", t)
+					.limit(limit as i32)
+					.send()
+					.await
+					.map(|res| {
+						res.items.map_or(vec![], |items| {
+							items
+								.into_iter()
+								.map(|mut item| {
+									let key_att = item.remove("pk").expect("pk is defined in item");
+									let key = match key_att {
+										AttributeValue::B(blob) => blob.into_inner(),
+										_ => unreachable!("key is not a blob"),
+									};
+									key
+								})
+								.collect::<Vec<_>>()
+						})
+					})
+					.map_err(|err| Error::Ds(err.to_string()));
+				tx.send(keys).await.expect("Response from DynamoDB is processed");
+			});
+		}
+		drop(tx);
+		let keys = {
+			let mut keys = Vec::new();
+			while let Some(response) = rx.recv().await {
+				keys.extend(response?);
+			}
+			keys.sort();
+			// drop irrelevant keys
+			keys.into_iter().take(limit as usize).collect::<Vec<_>>()
+		};
+
+		let chunks = keys.chunks(40).map(|keys| {
+			keys.iter().fold(KeysAndAttributes::builder(), |acc, key| {
+				acc.keys(HashMap::from([(
+					"pk".to_string(),
+					AttributeValue::B(Blob::new(key.to_vec())),
+				)]))
+			})
 		});
+		let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<Vec<(Key, Val)>, Error>>(40);
+		for chunk in chunks {
+			let tx = tx.clone();
+			let client = Arc::clone(&self.client);
+			let table = Arc::clone(&self.table);
+			tokio::spawn(async move {
+				let items = client
+					.batch_get_item()
+					.request_items(table.as_ref(), chunk.build())
+					.send()
+					.await
+					.map(|res| {
+						res.responses
+							.map(|mut tables| {
+								tables.remove(table.as_ref()).expect("SurrealDB is exists")
+							})
+							.map_or(vec![], |items| {
+								items
+									.into_iter()
+									.map(|mut item| {
+										let key_att =
+											item.remove("pk").expect("pk is defined in item");
+										let val_att =
+											item.remove("value").expect("value is defined in item");
+										let key = match key_att {
+											AttributeValue::B(blob) => blob.into_inner(),
+											_ => unreachable!("pk is not a blob"),
+										};
+										let value = match val_att {
+											AttributeValue::B(blob) => blob.into_inner(),
+											_ => unreachable!("value is not a blob"),
+										};
+										(key, value)
+									})
+									.collect::<Vec<_>>()
+							})
+					})
+					.map_err(|err| Error::Ds(err.to_string()));
+				tx.send(items).await.expect("Response from DynamoDB is processed");
+			});
+		}
+		drop(tx);
+		let mut items = Vec::new();
+		while let Some(response) = rx.recv().await {
+			items.extend(response?);
+		}
+		items.sort_by(|a, b| a.cmp(b));
 		Ok(items)
 	}
 }
