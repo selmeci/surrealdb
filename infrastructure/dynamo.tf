@@ -20,6 +20,11 @@ resource "aws_dynamodb_table" "surrealdb" {
     type = "N"
   }
 
+  attribute {
+    name = "gsi1sk"
+    type = "N"
+  }
+
   ttl {
     attribute_name = "ttl"
     enabled        = true
@@ -28,8 +33,9 @@ resource "aws_dynamodb_table" "surrealdb" {
   global_secondary_index {
     name               = "GSI1"
     hash_key           = "gsi1pk"
-    range_key          = "pk"
-    projection_type    = "KEYS_ONLY"
+    range_key          = "gsi1sk"
+    projection_type    = "INCLUDE"
+    non_key_attributes = ["pk"]
   }
 
   tags = {
