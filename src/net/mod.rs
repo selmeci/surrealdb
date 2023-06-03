@@ -21,13 +21,12 @@ mod version;
 
 use crate::cli::CF;
 use crate::err::Error;
-use warp::reject::Reject;
-use warp::{Filter, Reply};
+use warp::{Filter, Rejection, Reply};
 
 const LOG: &str = "surrealdb::net";
 
 pub fn warp_routes(
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone + Sync + Send + 'static
+) -> impl Filter<Extract = (impl Reply + Sized,), Error = Rejection> + Clone + Sync + Send + 'static
 {
 	// Setup web routes
 	let net = index::config()
