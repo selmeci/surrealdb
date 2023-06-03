@@ -12,7 +12,7 @@
 #![allow(unused_imports)]
 #![forbid(unsafe_code)]
 
-use crate::cli::start;
+pub use crate::cli::start;
 #[cfg(feature = "aws-lambda")]
 pub use crate::cli::LambdaConfig;
 pub use crate::err::Error;

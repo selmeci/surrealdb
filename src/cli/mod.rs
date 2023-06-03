@@ -4,7 +4,7 @@ mod export;
 mod import;
 mod isready;
 mod sql;
-mod start;
+pub mod start;
 mod version;
 
 pub use config::CF;
