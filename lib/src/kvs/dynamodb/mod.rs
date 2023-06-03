@@ -11,13 +11,20 @@ use aws_sdk_dynamodb::primitives::Blob;
 use aws_sdk_dynamodb::types::{AttributeValue, KeysAndAttributes};
 use aws_sdk_dynamodb::Client;
 use rand::Rng;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::Arc;
 
-fn shard(shards: &usize) -> usize {
+static DYNAMODB_ENDPOINT: &str = "DYNAMODB_ENDPOINT";
+
+fn use_custom_dynamodb_endpoint() -> Option<String> {
+	std::env::var(DYNAMODB_ENDPOINT).ok()
+}
+
+fn shard(shards: &u8) -> u8 {
 	let mut rng = rand::thread_rng();
-	rng.gen_range(0usize..*shards)
+	rng.gen_range(0u8..*shards)
 }
 
 ///
@@ -35,7 +42,7 @@ fn shard(shards: &usize) -> usize {
 pub struct Datastore {
 	client: Arc<Client>,
 	table: Arc<String>,
-	shards: usize,
+	shards: u8,
 }
 
 pub struct Transaction {
@@ -48,14 +55,18 @@ pub struct Transaction {
 	// table
 	table: Arc<String>,
 	// number of shards
-	shards: usize,
+	shards: u8,
 }
 
 impl Datastore {
 	/// Open a new database from ENV
-	pub async fn new(table: String, shards: usize) -> Result<Datastore, Error> {
+	pub async fn new(table: String, shards: u8) -> Result<Datastore, Error> {
 		let config = aws_config::load_from_env().await;
-		let client = Arc::new(Client::new(&config));
+		let mut builder = aws_sdk_dynamodb::config::Builder::from(&config);
+		if let Some(custom_dynamodb_endpoint) = use_custom_dynamodb_endpoint() {
+			builder = builder.endpoint_url(custom_dynamodb_endpoint);
+		}
+		let client = Arc::new(Client::from_conf(builder.build()));
 		Ok(Datastore {
 			client,
 			table: Arc::new(table),
@@ -86,9 +97,11 @@ impl Transaction {
 		self.client
 			.put_item()
 			.table_name(self.table.as_ref())
-			.item("pk", key)
+			.item("pk", key.clone())
+			.item("sk", key.clone())
 			.item("value", AttributeValue::B(Blob::new(val.into())))
-			.item("gsi1pk", AttributeValue::N(shard.to_string()))
+			.item("gsi1pk", AttributeValue::B(Blob::new(vec![shard])))
+			.item("gsi1sk", key)
 	}
 
 	fn build_delete_request<K>(&self, key: K) -> DeleteItemFluentBuilder
@@ -97,7 +110,11 @@ impl Transaction {
 	{
 		let key = key.into();
 		let key = AttributeValue::B(Blob::new(key));
-		self.client.delete_item().table_name(self.table.as_ref()).key("pk", key)
+		self.client
+			.delete_item()
+			.table_name(self.table.as_ref())
+			.key("pk", key.clone())
+			.key("sk", key)
 	}
 
 	/// Check if closed
@@ -150,7 +167,8 @@ impl Transaction {
 			.client
 			.get_item()
 			.table_name(self.table.as_ref())
-			.key("pk", key)
+			.key("pk", key.clone())
+			.key("sk", key)
 			.attributes_to_get("pk")
 			.send()
 			.await
@@ -176,7 +194,8 @@ impl Transaction {
 			.client
 			.get_item()
 			.table_name(self.table.as_ref())
-			.key("pk", key)
+			.key("pk", key.clone())
+			.key("sk", key)
 			.send()
 			.await
 			.map_err(|err| Error::Ds(err.to_string()))?;
@@ -351,12 +370,15 @@ impl Transaction {
 		}
 		let from = rng.start.into();
 		let to = rng.end.into();
+		if to.cmp(&from) == Ordering::Less {
+			return Ok(Vec::with_capacity(0));
+		}
 		// Scan the keys
 		let from = AttributeValue::B(Blob::new(from));
 		let to = AttributeValue::B(Blob::new(to));
 
 		let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<Vec<Key>, Error>>(10);
-		for bucket in 0usize..self.shards {
+		for bucket in 0u8..self.shards {
 			let tx = tx.clone();
 			let client = Arc::clone(&self.client);
 			let table = Arc::clone(&self.table);
@@ -364,17 +386,25 @@ impl Transaction {
 			let t = to.clone();
 
 			tokio::spawn(async move {
-				let keys = client
+				let query = client
 					.query()
 					.table_name(table.as_ref())
 					.index_name("GSI1")
-					.key_condition_expression("#gsi1pk = :gsi1pk and #pk between :from and :to")
+					.key_condition_expression("#gsi1pk = :gsi1pk and #gsi1sk between :from and :to")
+					// a BETWEEN b AND c — true if a is greater than or equal to b, and less than or equal to c.
+					// We don't want: or equal to c
+					.filter_expression("#pk < :to")
 					.expression_attribute_names("#gsi1pk", "gsi1pk")
+					.expression_attribute_names("#gsi1sk", "gsi1sk")
 					.expression_attribute_names("#pk", "pk")
-					.expression_attribute_values(":gsi1pk", AttributeValue::N(bucket.to_string()))
+					.expression_attribute_values(
+						":gsi1pk",
+						AttributeValue::B(Blob::new(vec![bucket])),
+					)
 					.expression_attribute_values(":from", f)
 					.expression_attribute_values(":to", t)
-					.limit(limit as i32)
+					.limit(limit as i32);
+				let keys = query
 					.send()
 					.await
 					.map(|res| {
@@ -409,10 +439,8 @@ impl Transaction {
 
 		let chunks = keys.chunks(40).map(|keys| {
 			keys.iter().fold(KeysAndAttributes::builder(), |acc, key| {
-				acc.keys(HashMap::from([(
-					"pk".to_string(),
-					AttributeValue::B(Blob::new(key.to_vec())),
-				)]))
+				let key = AttributeValue::B(Blob::new(key.as_slice()));
+				acc.keys(HashMap::from([("pk".to_string(), key.clone()), ("sk".to_string(), key)]))
 			})
 		});
 		let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<Vec<(Key, Val)>, Error>>(40);
