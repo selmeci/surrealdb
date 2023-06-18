@@ -7,7 +7,7 @@ license-file = "LICENSE"
 authors = ["Tobie Morgan Hitchcock <tobie@surrealdb.com>", "Roman Selmeci <selmeci.roman@gmail.com>"]
 
 [features]
-default = ["aws-lambda", "scripting", "http"]
+default = ["storage-dynamodb", "scripting", "http"]
 storage-mem = ["surrealdb/kv-mem"]
 storage-dynamodb = ["surrealdb/kv-dynamodb"]
 storage-rocksdb = ["surrealdb/kv-rocksdb"]
@@ -15,7 +15,7 @@ storage-tikv = ["surrealdb/kv-tikv"]
 storage-fdb = ["surrealdb/kv-fdb-6_3"]
 scripting = ["surrealdb/scripting"]
 http = ["surrealdb/http"]
-aws-lambda = ["storage-dynamodb"]
+aws-lambda = []
 
 [workspace]
 members = ["lib", "lib/examples/actix", "lib/examples/axum"]

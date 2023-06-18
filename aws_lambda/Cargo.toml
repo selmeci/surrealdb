@@ -16,4 +16,4 @@ path = "src/main.rs"
 tokio = { version = "1.28"}
 warp = "0.3"
 lambda-web = { version = "0.2", features=["hyper"] }
-surreal = { path = "./surrealdb", features = ["aws-lambda"], default-features = false }
+surreal = { path = "./surrealdb", features = ["aws-lambda"] }
