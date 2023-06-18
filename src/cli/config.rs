@@ -18,7 +18,6 @@ pub struct Config {
 pub struct LambdaConfig {
 	pub strict: bool,
 	pub table: String,
-	pub stage: String,
 	pub user: String,
 	pub pass: Option<String>,
 	pub log: String,
