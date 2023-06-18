@@ -5,7 +5,7 @@ use surreal::{init_warp, LambdaConfig};
 #[tokio::main]
 async fn main() -> Result<(), LambdaError> {
 	let table = env::var("TABLE").expect("Missing DynamoDB table name. $TABLE");
-	let stage = env::var("STAGE").expect("API GTW stage is missing. $STAGE");
+	let shards = env::var("SHARDS").unwrap_or("1".to_string());
 	let strict = env::var("STRICT").map_or(false, |v| v.eq("true"));
 	let user = env::var("USER").unwrap_or("root".to_string());
 	let log = env::var("LOG_LVL").unwrap_or("info".to_string());
@@ -15,8 +15,7 @@ async fn main() -> Result<(), LambdaError> {
 		strict,
 		user,
 		pass,
-		table,
-		stage,
+		table: format!("{}?shards={}", table, shards),
 		log,
 	})
 	.await
