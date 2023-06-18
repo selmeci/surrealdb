@@ -1,3 +1,7 @@
+locals {
+  project_name = "${var.lambda_name}-${var.stage}"
+}
+
 resource "aws_iam_role" "lambda_execution_role" {
   name = "${var.lambda_name}-iam-role-${var.region}-${var.stage}"
   assume_role_policy = jsonencode({
@@ -24,10 +28,13 @@ resource "aws_lambda_function" "surrealdb" {
   depends_on = [
     aws_iam_role_policy_attachment.lambda_logs,
     aws_cloudwatch_log_group.lambda,
+    null_resource.ecr_image_builder,
   ]
 
+  architectures = ["arm64"]
+
   function_name = "${var.lambda_name}-${var.stage}"
-  image_uri     = "${aws_ecr_repository.lambda_repository.repository_url}@${data.aws_ecr_image.lambda_image.id}"
+  image_uri     = local.ecr_image
   package_type  = "Image"
   memory_size   = 512
   timeout       = 30
@@ -37,7 +44,8 @@ resource "aws_lambda_function" "surrealdb" {
       "RUST_LOG"       = "aws_lambda=${var.log_level},surreal=${var.log_level},surrealdb=${var.log_level},surrealdb::net=${var.log_level}",
       "LOG_LVL"        = var.log_level,
       "RUST_MIN_STACK" = "8388608",
-      "TABLE"          = aws_dynamodb_table.surrealdb.name,
+      "TABLE"          = var.table_name,
+      "SHARDS"         = var.shards,
       "USER"           = var.user,
       "PASS"           = var.pass,
       "STRICT"         = var.strict,
@@ -54,7 +62,7 @@ data "aws_iam_policy_document" "db_policy" {
     actions = [
       "dynamodb:*",
     ]
-    resources = ["${aws_dynamodb_table.surrealdb.arn}*"]
+    resources = ["${var.dynamodb_table_arn}*"]
   }
 }
 

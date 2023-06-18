@@ -1,86 +1,79 @@
-variable "mode" {
-  description = "The mode for Terraform"
-  default     = "lambda"
+variable "account_id" {
   type        = string
+  description = "AWS account id"
+}
 
-  validation {
-    condition     = contains(["lambda", "fargate"], var.mode)
-    error_message = "Invalid mode value. Allowed values are 'lambda' or 'fargate'."
-  }
+variable "stage" {
+  description = "Deployment stage."
+  type        = string
 }
 
 variable "region" {
   description = "AWS region for all resources."
   type        = string
-  default     = "eu-central-1"
 }
 
 variable "table_name" {
   description = "The name of DynamoDB table."
   type        = string
-  default     = "surrealdb"
 }
 
-variable "name" {
-  description = "The name of runtime service."
+variable "service_name" {
+  description = "The name of service."
   type        = string
-  default     = "surrealdb"
 }
 
 variable "log_retention_in_days" {
-  type    = number
-  default = 30
+  type = number
 }
 
 variable "log_level" {
-  type    = string
-  default = "trace"
+  type = string
 }
 
 variable "user" {
   type        = string
-  default     = "root"
   description = "Username for root"
 }
 
 variable "pass" {
   type        = string
-  default     = "pass"
   description = "Password for root"
 }
 
 variable "strict" {
   type        = bool
-  default     = false
   description = "Run DB in strict mode"
 }
 
-variable "shards" {
-  type        = number
-  default     = 1
-  description = "Number of shards used in DynamoDB"
+variable "dynamodb_table_arn" {
+  type        = string
+  description = "ARN of DynamoDB table"
 }
+
+# server
 
 variable "server_cpu" {
   type        = number
   description = "CPU setting for SurrealDB server task in Fargate"
-  default     = 256
 }
 
 variable "server_memory" {
   type        = number
   description = "Memory setting for SurrealDB server task in Fargate"
-  default     = 512
 }
 
 variable "server_max_capacity" {
   type        = number
   description = "Limit for horizontal scaling of SurrealDB server"
-  default     = 8
+}
+
+variable "shards" {
+  type        = number
+  description = "Number of shards used in DynamoDB"
 }
 
 variable "domain" {
-  description = "Domain name for the hosted zone. Optional. If defined Route53 records and ACM certificate are created."
+  description = "Domain name for the hosted zone"
   type        = string
-  default     = ""
 }
