@@ -32,11 +32,11 @@ resource "aws_ecs_cluster_capacity_providers" "surrealdb" {
 
 locals {
   ecr_environment = [
-    { name : "RUST_LOG", value : "surreal=${var.log_level},surrealdb=${var.log_level},surrealdb::net=${var.log_level}" },
-    { name : "LOG_LVL", value : var.log_level },
     { name : "RUST_MIN_STACK", value : "8388608" },
     { name : "SURREAL_PATH", value : "dynamodb://${var.table_name}?shards=${var.shards}" },
-    { name : "SURREAL_USER", value : "root" }
+    { name : "SURREAL_USER", value : "root" },
+    { name : "SURREAL_STRICT", value : var.strict },
+    { name : "SURREAL_LOG", value : var.log_level }
   ]
   ecr_secrets = [
     { name : "SURREAL_PASS", valueFrom : aws_ssm_parameter.root_password.arn },
