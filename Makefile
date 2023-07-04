@@ -12,7 +12,7 @@ setup:
 
 .PHONY: docs
 docs:
-	cargo doc --open --no-deps --package surrealdb --features rustls,native-tls,protocol-ws,protocol-http,kv-dynamodb,kv-mem,kv-indxdb,kv-rocksdb,kv-tikv,http,scripting
+	cargo doc --open --no-deps --package surrealdb --features rustls,native-tls,protocol-ws,protocol-http,kv-dynamodb,kv-mem,kv-indxdb,kv-speedb,kv-rocksdb,kv-tikv,http,scripting
 
 .PHONY: test
 test:
@@ -21,12 +21,17 @@ test:
 .PHONY: check
 check:
 	cargo check --workspace
-	cargo fmt --all -- --check
-	cargo clippy -- -W warnings
+	cargo fmt --all --check
+	cargo fmt --all --check -- ./lib/tests/**/*.rs ./lib/src/kvs/tests/*.rs
+	cargo clippy --all-targets --all-features -- -D warnings
 
 .PHONY: clean
 clean:
 	cargo clean
+
+.PHONY: bench
+bench:
+	cargo bench --package surrealdb --no-default-features --features kv-mem,http,scripting
 
 .PHONY: serve
 serve:

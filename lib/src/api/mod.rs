@@ -30,7 +30,7 @@ use wasm_bindgen_futures::spawn_local as spawn;
 /// A specialized `Result` type
 pub type Result<T> = std::result::Result<T, crate::Error>;
 
-const SUPPORTED_VERSIONS: (&str, &str) = (">=1.0.0-beta.8, <2.0.0", "20221030.c12a1cc");
+const SUPPORTED_VERSIONS: (&str, &str) = (">=1.0.0-beta.9, <2.0.0", "20230701.55918b7c");
 const LOG: &str = "surrealdb::api";
 
 /// Connection trait implemented by supported engines
@@ -128,7 +128,6 @@ where
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub(crate) enum ExtraFeatures {
-	Auth,
 	Backup,
 }
 

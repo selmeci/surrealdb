@@ -37,6 +37,7 @@ infrastructure/.terraform.lock.hcl
 /target/
 /lib/target/
 .idea/
+.vscode/
 /result
 /bin/
 /docker/

@@ -7,7 +7,6 @@ use crate::api::conn::Param;
 use crate::api::conn::Route;
 use crate::api::conn::Router;
 use crate::api::opt::Endpoint;
-use crate::api::ExtraFeatures;
 use crate::api::Result;
 use crate::api::Surreal;
 use flume::Receiver;
@@ -49,16 +48,11 @@ impl Connection for Client {
 
 			router(address, conn_tx, route_rx);
 
-			if let Err(error) = conn_rx.into_recv_async().await? {
-				return Err(error);
-			}
-
-			let mut features = HashSet::new();
-			features.insert(ExtraFeatures::Auth);
+			conn_rx.into_recv_async().await??;
 
 			Ok(Surreal {
 				router: OnceCell::with_value(Arc::new(Router {
-					features,
+					features: HashSet::new(),
 					conn: PhantomData,
 					sender: route_tx,
 					last_id: AtomicI64::new(0),
@@ -108,7 +102,7 @@ pub(crate) fn router(
 				client
 			}
 			Err(error) => {
-				let _ = conn_tx.into_send_async(Err(error.into())).await;
+				let _ = conn_tx.into_send_async(Err(error)).await;
 				return;
 			}
 		};

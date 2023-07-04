@@ -1,49 +1,86 @@
+use crate::cli::abstraction::{
+	AuthArguments, DatabaseConnectionArguments, DatabaseSelectionOptionalArguments,
+};
 use crate::err::Error;
+use clap::Args;
 use rustyline::error::ReadlineError;
 use rustyline::validate::{ValidationContext, ValidationResult, Validator};
 use rustyline::{Completer, Editor, Helper, Highlighter, Hinter};
+use serde::Serialize;
+use serde_json::ser::PrettyFormatter;
 use surrealdb::engine::any::connect;
-use surrealdb::error::Api as ApiError;
 use surrealdb::opt::auth::Root;
 use surrealdb::sql::{self, Statement, Value};
-use surrealdb::{Error as SurrealError, Response};
+use surrealdb::Response;
 
-#[tokio::main]
-pub async fn init(matches: &clap::ArgMatches) -> Result<(), Error> {
+#[derive(Args, Debug)]
+pub struct SqlCommandArguments {
+	#[command(flatten)]
+	conn: DatabaseConnectionArguments,
+	#[command(flatten)]
+	auth: AuthArguments,
+	#[command(flatten)]
+	sel: Option<DatabaseSelectionOptionalArguments>,
+	/// Whether database responses should be pretty printed
+	#[arg(long)]
+	pretty: bool,
+	/// Whether to emit results in JSON
+	#[arg(long)]
+	json: bool,
+	/// Whether omitting semicolon causes a newline
+	#[arg(long)]
+	multi: bool,
+}
+
+pub async fn init(
+	SqlCommandArguments {
+		auth: AuthArguments {
+			username,
+			password,
+		},
+		conn: DatabaseConnectionArguments {
+			endpoint,
+		},
+		sel,
+		pretty,
+		json,
+		multi,
+		..
+	}: SqlCommandArguments,
+) -> Result<(), Error> {
 	// Initialize opentelemetry and logging
 	crate::o11y::builder().with_log_level("warn").init();
-	// Parse all other cli arguments
-	let username = matches.value_of("user").unwrap();
-	let password = matches.value_of("pass").unwrap();
-	let endpoint = matches.value_of("conn").unwrap();
-	let mut ns = matches.value_of("ns").map(str::to_string);
-	let mut db = matches.value_of("db").map(str::to_string);
-	// If we should pretty-print responses
-	let pretty = matches.is_present("pretty");
-	// Connect to the database engine
-	let client = connect(endpoint).await?;
-	// Sign in to the server if the specified database engine supports it
+
 	let root = Root {
-		username,
-		password,
+		username: &username,
+		password: &password,
 	};
-	if let Err(error) = client.signin(root).await {
-		match error {
-			// Authentication not supported by this engine, we can safely continue
-			SurrealError::Api(ApiError::AuthNotSupported) => {}
-			error => {
-				return Err(error.into());
-			}
-		}
-	}
+	// Connect to the database engine
+	#[cfg(feature = "has-storage")]
+	let address = (endpoint, root);
+	#[cfg(not(feature = "has-storage"))]
+	let address = endpoint;
+	let client = connect(address).await?;
+	// Sign in to the server
+	client.signin(root).await?;
 	// Create a new terminal REPL
 	let mut rl = Editor::new().unwrap();
 	// Set custom input validation
 	rl.set_helper(Some(InputValidator {
-		multi: matches.is_present("multi"),
+		multi,
 	}));
 	// Load the command-line history
 	let _ = rl.load_history("history.txt");
+	// Keep track of current namespace/database.
+	let (mut ns, mut db) = if let Some(DatabaseSelectionOptionalArguments {
+		namespace,
+		database,
+	}) = sel
+	{
+		(namespace, database)
+	} else {
+		(None, None)
+	};
 	// Configure the prompt
 	let mut prompt = "> ".to_owned();
 	// Loop over each command-line input
@@ -117,7 +154,7 @@ pub async fn init(matches: &clap::ArgMatches) -> Result<(), Error> {
 				}
 				let res = client.query(query).await;
 				// Get the request response
-				match process(pretty, res) {
+				match process(pretty, json, res) {
 					Ok(v) => {
 						println!("{v}\n");
 					}
@@ -137,7 +174,7 @@ pub async fn init(matches: &clap::ArgMatches) -> Result<(), Error> {
 	Ok(())
 }
 
-fn process(pretty: bool, res: surrealdb::Result<Response>) -> Result<String, Error> {
+fn process(pretty: bool, json: bool, res: surrealdb::Result<Response>) -> Result<String, Error> {
 	// Check query response for an error
 	let mut response = res?;
 	// Get the number of statements the query contained
@@ -146,18 +183,33 @@ fn process(pretty: bool, res: surrealdb::Result<Response>) -> Result<String, Err
 	let value = if num_statements > 1 {
 		let mut output = Vec::<Value>::with_capacity(num_statements);
 		for index in 0..num_statements {
-			output.push(response.take(index)?);
+			output.push(match response.take(index) {
+				Ok(v) => v,
+				Err(e) => e.to_string().into(),
+			});
 		}
 		Value::from(output)
 	} else {
 		response.take(0)?
 	};
-	// Check if we should prettify
-	Ok(match pretty {
-		// Don't prettify the response
-		false => value.to_string(),
-		// Yes prettify the response
-		true => format!("{value:#}"),
+	// Check if we should emit JSON and/or prettify
+	Ok(match (json, pretty) {
+		// Don't prettify the SurrealQL response
+		(false, false) => value.to_string(),
+		// Yes prettify the SurrealQL response
+		(false, true) => format!("{value:#}"),
+		// Don't pretty print the JSON response
+		(true, false) => serde_json::to_string(&value.into_json()).unwrap(),
+		// Yes prettify the JSON response
+		(true, true) => {
+			let mut buf = Vec::new();
+			let mut serializer = serde_json::Serializer::with_formatter(
+				&mut buf,
+				PrettyFormatter::with_indent(b"\t"),
+			);
+			value.into_json().serialize(&mut serializer).unwrap();
+			String::from_utf8(buf).unwrap()
+		}
 	})
 }
 
@@ -177,7 +229,7 @@ impl Validator for InputValidator {
 		let input = input.trim();
 		// Process the input to check if we can send the query
 		let result = if self.multi && !input.ends_with(';') {
-			Incomplete // The line ends with a ; and we are in multi mode
+			Incomplete // The line doesn't end with a ; and we are in multi mode
 		} else if self.multi && input.is_empty() {
 			Incomplete // The line was empty and we are in multi mode
 		} else if input.ends_with('\\') {
