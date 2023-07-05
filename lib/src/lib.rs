@@ -126,6 +126,7 @@ pub mod env;
 pub mod err;
 #[cfg(any(
 	feature = "kv-mem",
+	feature = "kv-dynamodb",
 	feature = "kv-tikv",
 	feature = "kv-rocksdb",
 	feature = "kv-speedb",

@@ -119,7 +119,7 @@ impl Datastore {
 	/// # use surrealdb::err::Error;
 	/// # #[tokio::main]
 	/// # async fn main() -> Result<(), Error> {
-	/// let ds = Datastore::new("dynamodb://table_name").await?;
+	/// let ds = Datastore::new("dynamodb://table_name?shards=2").await?;
 	/// # Ok(())
 	/// # }
 	/// ```
@@ -160,9 +160,7 @@ impl Datastore {
 					let table = captures.get(1).unwrap().as_str().to_string();
 					let shards = captures.get(2).map_or(1, |m| m.as_str().parse().unwrap_or(1));
 					let v =
-						super::dynamodb::Datastore::new(table, shards).await.map(|v| Datastore {
-							inner: Inner::DynamoDB(v),
-						});
+						super::dynamodb::Datastore::new(table, shards).await.map(Inner::DynamoDB);
 					info!(target: LOG, "Started dynamodb store at {}", path);
 					v
 				}

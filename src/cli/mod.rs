@@ -26,8 +26,6 @@ use start::StartCommandArguments;
 use std::process::ExitCode;
 
 #[cfg(feature = "aws-lambda")]
-pub use config::LambdaConfig;
-#[cfg(feature = "aws-lambda")]
 pub use start::init as start;
 
 pub const LOG: &str = "surrealdb::cli";

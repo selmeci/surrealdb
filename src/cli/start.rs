@@ -1,7 +1,5 @@
 use super::config;
 use super::config::Config;
-#[cfg(feature = "aws-lambda")]
-use crate::cli::config::LambdaConfig;
 use crate::cli::validator::parser::env_filter::CustomEnvFilter;
 use crate::cli::validator::parser::env_filter::CustomEnvFilterParser;
 use crate::cnf::LOGO;
@@ -16,98 +14,83 @@ use ipnet::IpNet;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
-#[cfg(feature = "aws-lambda")]
-type InitMatches = LambdaConfig;
-#[cfg(not(feature = "aws-lambda"))]
-type InitMatches = StartCommandArguments;
-
 #[derive(Args, Debug)]
 pub struct StartCommandArguments {
 	#[arg(help = "Database path used for storing data")]
 	#[arg(env = "SURREAL_PATH", index = 1)]
 	#[arg(default_value = "memory")]
 	#[arg(value_parser = super::validator::path_valid)]
-	path: String,
+	pub path: String,
 	#[arg(help = "The master username for the database")]
 	#[arg(env = "SURREAL_USER", short = 'u', long = "username", visible_alias = "user")]
 	#[arg(default_value = "root")]
-	username: String,
+	pub username: String,
 	#[arg(help = "The master password for the database")]
 	#[arg(env = "SURREAL_PASS", short = 'p', long = "password", visible_alias = "pass")]
-	password: Option<String>,
+	pub password: Option<String>,
 	#[arg(help = "The allowed networks for master authentication")]
 	#[arg(env = "SURREAL_ADDR", long = "addr")]
 	#[arg(default_value = "127.0.0.1/32")]
-	allowed_networks: Vec<IpNet>,
+	pub allowed_networks: Vec<IpNet>,
 	#[arg(help = "The method of detecting the client's IP address")]
 	#[arg(env = "SURREAL_CLIENT_IP", long)]
 	#[arg(default_value = "socket", value_enum)]
-	client_ip: ClientIp,
+	pub client_ip: ClientIp,
 	#[arg(help = "The hostname or ip address to listen for connections on")]
 	#[arg(env = "SURREAL_BIND", short = 'b', long = "bind")]
 	#[arg(default_value = "0.0.0.0:8000")]
-	listen_addresses: Vec<SocketAddr>,
+	pub listen_addresses: Vec<SocketAddr>,
 	#[command(flatten)]
-	dbs: StartCommandDbsOptions,
+	pub dbs: StartCommandDbsOptions,
 	#[arg(help = "Encryption key to use for on-disk encryption")]
 	#[arg(env = "SURREAL_KEY", short = 'k', long = "key")]
 	#[arg(value_parser = super::validator::key_valid)]
-	key: Option<String>,
+	pub key: Option<String>,
 	#[command(flatten)]
-	kvs: Option<StartCommandRemoteTlsOptions>,
+	pub kvs: Option<StartCommandRemoteTlsOptions>,
 	#[command(flatten)]
-	web: Option<StartCommandWebTlsOptions>,
+	pub web: Option<StartCommandWebTlsOptions>,
 	#[arg(help = "Whether strict mode is enabled on this database instance")]
 	#[arg(env = "SURREAL_STRICT", short = 's', long = "strict")]
 	#[arg(default_value_t = false)]
-	strict: bool,
+	pub strict: bool,
 	#[arg(help = "The logging level for the database server")]
 	#[arg(env = "SURREAL_LOG", short = 'l', long = "log")]
 	#[arg(default_value = "info")]
 	#[arg(value_parser = CustomEnvFilterParser::new())]
-	log: CustomEnvFilter,
+	pub log: CustomEnvFilter,
 	#[arg(help = "Whether to hide the startup banner")]
 	#[arg(env = "SURREAL_NO_BANNER", long)]
 	#[arg(default_value_t = false)]
-	no_banner: bool,
+	pub no_banner: bool,
 }
 
 #[derive(Args, Debug)]
 #[group(requires_all = ["kvs_ca", "kvs_crt", "kvs_key"], multiple = true)]
-struct StartCommandRemoteTlsOptions {
+pub struct StartCommandRemoteTlsOptions {
 	#[arg(help = "Path to the CA file used when connecting to the remote KV store")]
 	#[arg(env = "SURREAL_KVS_CA", long = "kvs-ca", value_parser = super::validator::file_exists)]
-	kvs_ca: Option<PathBuf>,
+	pub kvs_ca: Option<PathBuf>,
 	#[arg(help = "Path to the certificate file used when connecting to the remote KV store")]
 	#[arg(env = "SURREAL_KVS_CRT", long = "kvs-crt", value_parser = super::validator::file_exists)]
-	kvs_crt: Option<PathBuf>,
+	pub kvs_crt: Option<PathBuf>,
 	#[arg(help = "Path to the private key file used when connecting to the remote KV store")]
 	#[arg(env = "SURREAL_KVS_KEY", long = "kvs-key", value_parser = super::validator::file_exists)]
-	kvs_key: Option<PathBuf>,
+	pub kvs_key: Option<PathBuf>,
 }
 
 #[derive(Args, Debug)]
 #[group(requires_all = ["web_crt", "web_key"], multiple = true)]
-struct StartCommandWebTlsOptions {
+pub struct StartCommandWebTlsOptions {
 	#[arg(help = "Path to the certificate file for encrypted client connections")]
 	#[arg(env = "SURREAL_WEB_CRT", long = "web-crt", value_parser = super::validator::file_exists)]
-	web_crt: Option<PathBuf>,
+	pub web_crt: Option<PathBuf>,
 	#[arg(help = "Path to the private key file for encrypted client connections")]
 	#[arg(env = "SURREAL_WEB_KEY", long = "web-key", value_parser = super::validator::file_exists)]
-	web_key: Option<PathBuf>,
+	pub web_key: Option<PathBuf>,
 }
 
-#[cfg(not(feature = "aws-lambda"))]
-pub async fn init(matches: &InitMatches) -> Result<(), Error> {
-	init_impl(matches).await
-}
-
-#[cfg(feature = "aws-lambda")]
-pub async fn init(matches: &InitMatches) -> Result<(), Error> {
-	init_impl(matches).await
-}
-
-pub async fn init_impl(
+pub async fn init(
 	StartCommandArguments {
 		path,
 		username: user,
@@ -123,7 +106,6 @@ pub async fn init_impl(
 	}: StartCommandArguments,
 ) -> Result<(), Error> {
 	// Initialize opentelemetry and logging
-	#[cfg(not(feature = "aws-lambda"))]
 	crate::o11y::builder().with_filter(log).init();
 
 	// Check if a banner should be outputted
@@ -149,7 +131,6 @@ pub async fn init_impl(
 	// Start the kvs server
 	dbs::init(dbs).await?;
 	// Start the web server
-	#[cfg(not(feature = "aws-lambda"))]
 	net::init().await?;
 	// All ok
 	Ok(())

@@ -9,7 +9,7 @@ authors = ["Tobie Morgan Hitchcock <tobie@surrealdb.com>", "Roman Selmeci <selme
 [features]
 default = ["storage-dynamodb", "scripting", "http"]
 storage-mem = ["surrealdb/kv-mem"]
-storage-dynamodb = ["surrealdb/kv-dynamodb"]
+storage-dynamodb = ["surrealdb/kv-dynamodb", "has-storage"]
 storage-rocksdb = ["surrealdb/kv-rocksdb"]
 storage-speedb = ["surrealdb/kv-speedb", "has-storage"]
 storage-tikv = ["surrealdb/kv-tikv"]

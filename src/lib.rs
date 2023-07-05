@@ -13,36 +13,44 @@
 #![forbid(unsafe_code)]
 
 pub use crate::cli::start;
-#[cfg(feature = "aws-lambda")]
-pub use crate::cli::LambdaConfig;
+pub use crate::cli::validator::parser::env_filter::CustomEnvFilter;
+pub use crate::dbs::StartCommandDbsOptions;
 pub use crate::err::Error;
+pub use crate::net::client_ip::ClientIp;
 use crate::net::warp_routes;
+pub use crate::start::StartCommandArguments;
+pub use tracing_subscriber::EnvFilter;
 use warp::Filter;
 
 #[macro_use]
-extern crate log;
+extern crate tracing;
 
+#[cfg(feature = "has-storage")]
 #[macro_use]
 mod mac;
 
 mod cli;
 mod cnf;
+#[cfg(feature = "has-storage")]
 mod dbs;
 mod env;
 mod err;
+#[cfg(feature = "has-storage")]
 mod iam;
+#[cfg(feature = "has-storage")]
 mod net;
 mod o11y;
+#[cfg(feature = "has-storage")]
 mod rpc;
 
 #[cfg(feature = "aws-lambda")]
 pub async fn init_warp(
-	config: LambdaConfig,
+	config: StartCommandArguments,
 ) -> Result<
 	impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone + Sync + Send + 'static,
 	Error,
 > {
-	start(&config).await?;
+	start(config).await?;
 	let routes = warp_routes();
 	Ok(routes)
 }

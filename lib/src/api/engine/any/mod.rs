@@ -88,6 +88,7 @@ use crate::api::conn::Method;
 use crate::api::err::Error;
 #[cfg(any(
 	feature = "kv-mem",
+	feature = "kv-dynamodb",
 	feature = "kv-tikv",
 	feature = "kv-rocksdb",
 	feature = "kv-fdb",
@@ -97,6 +98,7 @@ use crate::api::opt::auth::Root;
 use crate::api::opt::Endpoint;
 #[cfg(any(
 	feature = "kv-mem",
+	feature = "kv-dynamodb",
 	feature = "kv-tikv",
 	feature = "kv-rocksdb",
 	feature = "kv-speedb",
@@ -179,6 +181,7 @@ where
 
 #[cfg(any(
 	feature = "kv-mem",
+	feature = "kv-dynamodb",
 	feature = "kv-tikv",
 	feature = "kv-rocksdb",
 	feature = "kv-speedb",
@@ -189,6 +192,7 @@ where
 	docsrs,
 	doc(cfg(any(
 		feature = "kv-mem",
+		feature = "kv-dynamodb",
 		feature = "kv-tikv",
 		feature = "kv-rocksdb",
 		feature = "kv-speedb",
@@ -209,6 +213,7 @@ where
 
 #[cfg(any(
 	feature = "kv-mem",
+	feature = "kv-dynamodb",
 	feature = "kv-tikv",
 	feature = "kv-rocksdb",
 	feature = "kv-fdb",
@@ -218,6 +223,7 @@ where
 	docsrs,
 	doc(cfg(any(
 		feature = "kv-mem",
+		feature = "kv-dynamodb",
 		feature = "kv-tikv",
 		feature = "kv-rocksdb",
 		feature = "kv-fdb",
@@ -240,6 +246,7 @@ where
 
 #[cfg(any(
 	feature = "kv-mem",
+	feature = "kv-dynamodb",
 	feature = "kv-tikv",
 	feature = "kv-rocksdb",
 	feature = "kv-fdb",
@@ -249,6 +256,7 @@ where
 	docsrs,
 	doc(cfg(any(
 		feature = "kv-mem",
+		feature = "kv-dynamodb",
 		feature = "kv-tikv",
 		feature = "kv-rocksdb",
 		feature = "kv-fdb",
@@ -270,6 +278,7 @@ where
 #[cfg(all(
 	any(
 		feature = "kv-mem",
+		feature = "kv-dynamodb",
 		feature = "kv-tikv",
 		feature = "kv-rocksdb",
 		feature = "kv-fdb",
@@ -282,6 +291,7 @@ where
 	doc(cfg(all(
 		any(
 			feature = "kv-mem",
+			feature = "kv-dynamodb",
 			feature = "kv-tikv",
 			feature = "kv-rocksdb",
 			feature = "kv-fdb",
@@ -306,6 +316,7 @@ where
 #[cfg(all(
 	any(
 		feature = "kv-mem",
+		feature = "kv-dynamodb",
 		feature = "kv-tikv",
 		feature = "kv-rocksdb",
 		feature = "kv-fdb",
@@ -318,6 +329,7 @@ where
 	doc(cfg(all(
 		any(
 			feature = "kv-mem",
+			feature = "kv-dynamodb",
 			feature = "kv-tikv",
 			feature = "kv-rocksdb",
 			feature = "kv-fdb",
@@ -341,6 +353,7 @@ where
 #[cfg(all(
 	any(
 		feature = "kv-mem",
+		feature = "kv-dynamodb",
 		feature = "kv-tikv",
 		feature = "kv-rocksdb",
 		feature = "kv-speedb",
@@ -354,6 +367,7 @@ where
 	doc(cfg(all(
 		any(
 			feature = "kv-mem",
+			feature = "kv-dynamodb",
 			feature = "kv-tikv",
 			feature = "kv-rocksdb",
 			feature = "kv-speedb",
@@ -379,6 +393,7 @@ where
 #[cfg(all(
 	any(
 		feature = "kv-mem",
+		feature = "kv-dynamodb",
 		feature = "kv-tikv",
 		feature = "kv-rocksdb",
 		feature = "kv-fdb",
@@ -391,6 +406,7 @@ where
 	doc(cfg(all(
 		any(
 			feature = "kv-mem",
+			feature = "kv-dynamodb",
 			feature = "kv-tikv",
 			feature = "kv-rocksdb",
 			feature = "kv-fdb",
@@ -480,7 +496,7 @@ impl Surreal<Any> {
 /// let db = connect("tikv://localhost:2379").await?;
 ///
 /// // Instantiate a TiKV-backed instance
-/// let db = connect("dynamodb://MyTable").await?;
+/// let db = connect("dynamodb://MyTable?shards=2").await?;
 ///
 /// // Instantiate a FoundationDB-backed instance
 /// let db = connect("fdb://fdb.cluster").await?;

@@ -15,7 +15,7 @@ pub struct StartCommandDbsOptions {
 	#[arg(help = "The maximum duration of any query")]
 	#[arg(env = "SURREAL_QUERY_TIMEOUT", long)]
 	#[arg(value_parser = super::cli::validator::duration)]
-	query_timeout: Option<Duration>,
+	pub query_timeout: Option<Duration>,
 }
 
 pub async fn init(
