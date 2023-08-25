@@ -11,6 +11,7 @@ use aws_sdk_dynamodb::primitives::Blob;
 use aws_sdk_dynamodb::types::{AttributeValue, KeysAndAttributes};
 use aws_sdk_dynamodb::Client;
 use rand::Rng;
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -25,6 +26,163 @@ fn use_custom_dynamodb_endpoint() -> Option<String> {
 fn shard(shards: &u8) -> u8 {
 	let mut rng = rand::thread_rng();
 	rng.gen_range(0u8..*shards)
+}
+
+#[derive(Debug)]
+enum Partition<'a> {
+	Namespace {
+		ns: Cow<'a, str>,
+	},
+	Database {
+		ns: Cow<'a, str>,
+		db: Cow<'a, str>,
+	},
+	Table {
+		ns: Cow<'a, str>,
+		db: Cow<'a, str>,
+		tb: Cow<'a, str>,
+	},
+	Scope {
+		ns: Cow<'a, str>,
+		db: Cow<'a, str>,
+		sc: Cow<'a, str>,
+	},
+	Graph {
+		ns: Cow<'a, str>,
+		db: Cow<'a, str>,
+		tb: Cow<'a, str>,
+		id: Cow<'a, str>,
+	},
+	Index {
+		ns: Cow<'a, str>,
+		db: Cow<'a, str>,
+		tb: Cow<'a, str>,
+		ix: Cow<'a, str>,
+	},
+	Fulltext {
+		ns: Cow<'a, str>,
+		db: Cow<'a, str>,
+		tb: Cow<'a, str>,
+		ix: Cow<'a, str>,
+	},
+	Global,
+}
+
+impl<'a> Partition<'a> {
+	fn new(key: &'a Key) -> Partition<'a> {
+		let segments =
+			key.split(|num| 0.eq(num)).filter(|segment| segment.len() > 0).collect::<Vec<_>>();
+		match segments.as_slice() {
+			[[b'/', b'*', ..], [b'*', ..], [b'*', ..], [b'!', b'b', ..], ..] => {
+				Partition::Fulltext {
+					ns: String::from_utf8_lossy(&segments[0][2..]),
+					db: String::from_utf8_lossy(&segments[1][1..]),
+					tb: String::from_utf8_lossy(&segments[2][1..]),
+					ix: String::from_utf8_lossy(&segments[3][1..]),
+				}
+			}
+			[[b'/', b'*', ..], [b'*', ..], [b'*', ..], [0xa4, ..], ..] => Partition::Index {
+				ns: String::from_utf8_lossy(&segments[0][2..]),
+				db: String::from_utf8_lossy(&segments[1][1..]),
+				tb: String::from_utf8_lossy(&segments[2][1..]),
+				ix: String::from_utf8_lossy(&segments[3][1..]),
+			},
+			[[b'/', b'*', ..], [b'*', ..], [b'*', ..], [b'~', ..], ..] => Partition::Graph {
+				ns: String::from_utf8_lossy(&segments[0][2..]),
+				db: String::from_utf8_lossy(&segments[1][1..]),
+				tb: String::from_utf8_lossy(&segments[2][1..]),
+				id: String::from_utf8_lossy(&segments[4][1..]),
+			},
+			[[b'/', b'*', ..], [b'*', ..], [0xb1, ..], [b'!', ..], ..]
+			| [[b'/', b'*', ..], [b'*', ..], [0xb1, ..], ..] => Partition::Scope {
+				ns: String::from_utf8_lossy(&segments[0][2..]),
+				db: String::from_utf8_lossy(&segments[1][1..]),
+				sc: String::from_utf8_lossy(&segments[2][1..]),
+			},
+			[[b'/', b'*', ..], [b'*', ..], [b'*', ..], [b'!', ..], ..]
+			| [[b'/', b'*', ..], [b'*', ..], [b'*', ..], ..] => Partition::Table {
+				ns: String::from_utf8_lossy(&segments[0][2..]),
+				db: String::from_utf8_lossy(&segments[1][1..]),
+				tb: String::from_utf8_lossy(&segments[2][1..]),
+			},
+			[[b'/', b'*', ..], [b'*', ..], [b'!', ..], ..] | [[b'/', b'*', ..], [b'*', ..]] => {
+				Partition::Database {
+					ns: String::from_utf8_lossy(&segments[0][2..]),
+					db: String::from_utf8_lossy(&segments[1][1..]),
+				}
+			}
+			[[b'/', b'*', ..]] => Partition::Namespace {
+				ns: String::from_utf8_lossy(&segments[0][2..]),
+			},
+			_ => Partition::Global,
+		}
+	}
+
+	fn key(&self, shard: u8) -> String {
+		match self {
+			Partition::Global => format!("global[{shard}]://", shard = shard),
+			Partition::Database {
+				ns,
+				db,
+			} => format!("db[{shard}]://{ns}/{db}", shard = shard, ns = ns, db = db),
+			Partition::Namespace {
+				ns,
+			} => format!("ns[{shard}]://{ns}", ns = ns),
+			Partition::Table {
+				ns,
+				db,
+				tb,
+			} => {
+				format!("table[{shard}]://{ns}/{db}/{tb}", shard = shard, ns = ns, db = db, tb = tb)
+			}
+			Partition::Scope {
+				ns,
+				db,
+				sc,
+			} => {
+				format!("scope[{shard}]://{ns}/{db}/{sc}", shard = shard, ns = ns, db = db, sc = sc)
+			}
+			Partition::Graph {
+				ns,
+				db,
+				tb,
+				id,
+			} => format!(
+				"graph[{shard}]://{ns}/{db}/{tb}/{id}",
+				shard = shard,
+				ns = ns,
+				db = db,
+				tb = tb,
+				id = id
+			),
+			Partition::Index {
+				ns,
+				db,
+				tb,
+				ix,
+			} => format!(
+				"index[{shard}]://{ns}/{db}/{tb}/{ix}",
+				shard = shard,
+				ns = ns,
+				db = db,
+				tb = tb,
+				ix = ix,
+			),
+			Partition::Fulltext {
+				ns,
+				db,
+				tb,
+				ix,
+			} => format!(
+				"fulltext[{shard}]://{ns}/{db}/{tb}/{ix}",
+				shard = shard,
+				ns = ns,
+				db = db,
+				tb = tb,
+				ix = ix
+			),
+		}
+	}
 }
 
 ///
@@ -93,15 +251,19 @@ impl Transaction {
 	{
 		let key = key.into();
 		let shard = shard(&self.shards);
-		let key = AttributeValue::B(Blob::new(key));
-		self.client
+		let partition = Partition::new(&key);
+		let gsi1pk = partition.key(shard);
+		let key = AttributeValue::B(Blob::new(key.clone()));
+		let result = self
+			.client
 			.put_item()
 			.table_name(self.table.as_ref())
 			.item("pk", key.clone())
 			.item("sk", key.clone())
 			.item("value", AttributeValue::B(Blob::new(val.into())))
-			.item("gsi1pk", AttributeValue::B(Blob::new(vec![shard])))
-			.item("gsi1sk", key)
+			.item("gsi1pk", AttributeValue::S(gsi1pk))
+			.item("gsi1sk", key);
+		result
 	}
 
 	fn build_delete_request<K>(&self, key: K) -> DeleteItemFluentBuilder
@@ -297,7 +459,6 @@ impl Transaction {
 				Error::Ds(err.to_string())
 			}
 		})?;
-
 		// Return result
 		Ok(())
 	}
@@ -369,21 +530,23 @@ impl Transaction {
 			return Err(Error::TxFinished);
 		}
 		let from = rng.start.into();
+		let partition = Partition::new(&from);
 		let to = rng.end.into();
 		if to.cmp(&from) == Ordering::Less {
 			return Ok(Vec::with_capacity(0));
 		}
 		// Scan the keys
-		let from = AttributeValue::B(Blob::new(from));
+		let from = AttributeValue::B(Blob::new(from.clone()));
 		let to = AttributeValue::B(Blob::new(to));
 
 		let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<Vec<Key>, Error>>(10);
-		for bucket in 0u8..self.shards {
+		for shard in 0u8..self.shards {
 			let tx = tx.clone();
 			let client = Arc::clone(&self.client);
 			let table = Arc::clone(&self.table);
 			let f = from.clone();
 			let t = to.clone();
+			let gsi1pk = partition.key(shard);
 
 			tokio::spawn(async move {
 				let query = client
@@ -397,10 +560,7 @@ impl Transaction {
 					.expression_attribute_names("#gsi1pk", "gsi1pk")
 					.expression_attribute_names("#gsi1sk", "gsi1sk")
 					.expression_attribute_names("#pk", "pk")
-					.expression_attribute_values(
-						":gsi1pk",
-						AttributeValue::B(Blob::new(vec![bucket])),
-					)
+					.expression_attribute_values(":gsi1pk", AttributeValue::S(gsi1pk))
 					.expression_attribute_values(":from", f)
 					.expression_attribute_values(":to", t)
 					.limit(limit as i32);

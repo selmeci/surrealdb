@@ -23,7 +23,7 @@ resource "aws_dynamodb_table" "surrealdb" {
 
   attribute {
     name = "gsi1pk"
-    type = "B"
+    type = "S"
   }
 
   attribute {

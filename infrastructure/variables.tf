@@ -37,7 +37,7 @@ variable "log_level" {
   default = "trace"
 
   validation {
-    condition     = contains(["error", "warn", "info", "debug", "trace", "full"], var.mode)
+    condition     = contains(["error", "warn", "info", "debug", "trace", "full"], var.log_level)
     error_message = "Invalid log level value. Allowed values are error, warn, info, debug, trace, full."
   }
 }
