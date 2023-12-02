@@ -1,3 +1,4 @@
-*
-!amd64/surreal
-!arm64/surreal
+target
+.github
+infrastructure
+pkg

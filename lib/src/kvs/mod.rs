@@ -11,9 +11,11 @@
 //! - `rocksdb`: [RocksDB](https://github.com/facebook/rocksdb) an embeddable persistent key-value store for fast storage
 //! - `speedb`: [SpeedyDB](https://github.com/speedb-io/speedb) fork of rocksDB making it faster (Redis is using speedb but this is not acid transactions)
 //! - `tikv`: [TiKV](https://github.com/tikv/tikv) a distributed, and transactional key-value database
+//! - `dynamodb`: [AWS DynamoDB](https://aws.amazon.com/dynamodb/) a cloud base distributed database without Txn
 //! - `mem`: in-memory database
 mod cache;
 mod ds;
+mod dynamodb;
 mod fdb;
 mod indxdb;
 mod kv;

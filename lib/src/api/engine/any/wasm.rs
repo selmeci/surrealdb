@@ -47,6 +47,18 @@ impl Connection for Any {
 			let mut features = HashSet::new();
 
 			match address.url.scheme() {
+				"dynamodb" => {
+					#[cfg(feature = "kv-dynamodb")]
+					{
+						engine::local::wasm::router(address, conn_tx, route_rx);
+						conn_rx.into_recv_async().await??;
+					}
+
+					#[cfg(not(feature = "kv-dynamodb"))]
+					return Err(
+						DbError::Ds("Cannot connect to the `dynamodb` storage engine as it is not enabled in this build of SurrealDB".to_owned()).into()
+					);
+				}
 				"fdb" => {
 					#[cfg(feature = "kv-fdb")]
 					{

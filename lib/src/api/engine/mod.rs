@@ -2,6 +2,7 @@
 
 pub mod any;
 #[cfg(any(
+	feature = "kv-dynamodb",
 	feature = "kv-mem",
 	feature = "kv-tikv",
 	feature = "kv-rocksdb",

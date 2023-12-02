@@ -72,6 +72,42 @@ use tokio::io::AsyncWriteExt;
 
 const DEFAULT_TICK_INTERVAL: Duration = Duration::from_secs(10);
 
+/// DynamoDB database
+///
+/// # Examples
+///
+/// Instantiating a DynamoDB instance
+///
+/// ```no_run
+/// # #[tokio::main]
+/// # async fn main() -> surrealdb::Result<()> {
+/// use surrealdb::Surreal;
+/// use surrealdb::engine::local::DynamoDbKv;
+///
+/// let db = Surreal::new::<DynamoDbKv>("localhost:2379").await?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Instantiating a TiKV strict instance
+///
+/// ```no_run
+/// # #[tokio::main]
+/// # async fn main() -> surrealdb::Result<()> {
+/// use surrealdb::opt::Config;
+/// use surrealdb::Surreal;
+/// use surrealdb::engine::local::DynamoDbKv;
+///
+/// let config = Config::default().strict();
+/// let db = Surreal::new::<DynamoDbKv>(("localhost:2379", config)).await?;
+/// # Ok(())
+/// # }
+/// ```
+#[cfg(feature = "kv-dynamodb")]
+#[cfg_attr(docsrs, doc(cfg(feature = "kv-dynamodb")))]
+#[derive(Debug)]
+pub struct DynamoDbKv;
+
 /// In-memory database
 ///
 /// # Examples

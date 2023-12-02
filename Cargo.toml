@@ -8,7 +8,8 @@ authors = ["Tobie Morgan Hitchcock <tobie@surrealdb.com>"]
 
 [features]
 # Public features
-default = ["storage-mem", "storage-rocksdb", "scripting", "http"]
+default = ["storage-dynamodb", "scripting", "http"]
+storage-dynamodb = ["surrealdb/kv-dynamodb", "has-storage"]
 storage-mem = ["surrealdb/kv-mem", "has-storage"]
 storage-rocksdb = ["surrealdb/kv-rocksdb", "has-storage"]
 storage-speedb = ["surrealdb/kv-speedb", "has-storage"]
@@ -62,7 +63,7 @@ serde_pack = { version = "1.1.2", package = "rmp-serde" }
 surrealdb = { path = "lib", features = ["protocol-http", "protocol-ws", "rustls"] }
 tempfile = "3.7.1"
 thiserror = "1.0.44"
-tokio = { version = "1.31.0", features = ["macros", "signal"] }
+tokio = { version = "1.31.0", features = ["full"] }
 tokio-util = { version = "0.7.8", features = ["io"] }
 tower = "0.4.13"
 tower-http = { version = "0.4.3", features = ["trace", "sensitive-headers", "auth", "request-id", "util", "catch-panic", "cors", "set-header", "limit", "add-extension"] }
