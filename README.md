@@ -74,6 +74,10 @@
 
 <br>
 
+<h2><img height="20" src="./img/whatissurreal.svg">&nbsp;&nbsp;Why did we fork this amazing DB?</h2>
+
+Please read more on our this blog [post](https://sudolabs.com/insights/surrealdb-aws-dynamodb-and-aws-lambda-a-serverless-match).
+
 <h2><img height="20" src="./img/whatissurreal.svg">&nbsp;&nbsp;What is SurrealDB?</h2>
 
 SurrealDB is an end-to-end cloud-native database designed for modern applications, including web, mobile, serverless, Jamstack, backend, and traditional applications. With SurrealDB, you can simplify your database and API infrastructure, reduce development time, and build secure, performant apps quickly and cost-effectively.
