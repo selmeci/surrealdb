@@ -39,6 +39,7 @@ impl ser::Serializer for Serializer {
 #[derive(Default)]
 pub struct SerializeDefineAnalyzerStatement {
 	name: Ident,
+	function: Option<Strand>,
 	tokenizers: Option<Vec<Tokenizer>>,
 	filters: Option<Vec<Filter>>,
 	comment: Option<Strand>,
@@ -55,6 +56,9 @@ impl serde::ser::SerializeStruct for SerializeDefineAnalyzerStatement {
 		match key {
 			"name" => {
 				self.name = Ident(value.serialize(ser::string::Serializer.wrap())?);
+			}
+			"function" => {
+				self.function = value.serialize(ser::strand::opt::Serializer.wrap())?;
 			}
 			"tokenizers" => {
 				self.tokenizers = value.serialize(ser::tokenizer::vec::opt::Serializer.wrap())?;

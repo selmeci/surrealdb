@@ -1,8 +1,8 @@
 use crate::err::Error;
 use crate::idx::trees::bkeys::TrieKeys;
-use crate::idx::trees::btree::{BStatistics, BTree, BTreeNodeStore};
+use crate::idx::trees::btree::{BState, BStatistics, BTree, BTreeNodeStore};
 use crate::idx::trees::store::{TreeNodeProvider, TreeNodeStore, TreeStoreType};
-use crate::idx::{trees, IndexKeyBase, VersionedSerdeState};
+use crate::idx::{IndexKeyBase, VersionedSerdeState};
 use crate::kvs::{Key, Transaction};
 use revision::revisioned;
 use roaring::RoaringTreemap;
@@ -10,9 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub(crate) type DocId = u64;
-
-pub(crate) const NO_DOC_ID: u64 = u64::MAX;
+pub type DocId = u64;
 
 pub(crate) struct DocIds {
 	state_key: Key,
@@ -157,7 +155,7 @@ impl DocIds {
 #[derive(Serialize, Deserialize)]
 #[revisioned(revision = 1)]
 struct State {
-	btree: trees::btree::BState,
+	btree: BState,
 	available_ids: Option<RoaringTreemap>,
 	next_doc_id: DocId,
 }
@@ -167,7 +165,7 @@ impl VersionedSerdeState for State {}
 impl State {
 	fn new(default_btree_order: u32) -> Self {
 		Self {
-			btree: trees::btree::BState::new(default_btree_order),
+			btree: BState::new(default_btree_order),
 			available_ids: None,
 			next_doc_id: 0,
 		}
@@ -201,12 +199,12 @@ mod tests {
 	use crate::idx::docids::{DocIds, Resolved};
 	use crate::idx::trees::store::TreeStoreType;
 	use crate::idx::IndexKeyBase;
-	use crate::kvs::{Datastore, Transaction};
+	use crate::kvs::{Datastore, LockType::*, Transaction, TransactionType::*};
 
 	const BTREE_ORDER: u32 = 7;
 
 	async fn get_doc_ids(ds: &Datastore, store_type: TreeStoreType) -> (Transaction, DocIds) {
-		let mut tx = ds.transaction(true, false).await.unwrap();
+		let mut tx = ds.transaction(Write, Optimistic).await.unwrap();
 		let d =
 			DocIds::new(&mut tx, IndexKeyBase::default(), BTREE_ORDER, store_type).await.unwrap();
 		(tx, d)

@@ -25,6 +25,7 @@ mod speedb;
 mod tikv;
 mod tx;
 
+mod clock;
 #[cfg(test)]
 mod tests;
 

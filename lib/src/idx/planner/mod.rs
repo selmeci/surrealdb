@@ -44,9 +44,12 @@ impl<'a> QueryPlanner<'a> {
 	) -> Result<(), Error> {
 		match Tree::build(ctx, self.opt, txn, &t, self.cond, self.with).await? {
 			Some((node, im, with_indexes)) => {
-				let mut exe = QueryExecutor::new(self.opt, txn, &t, im).await?;
+				let mut exe = QueryExecutor::new(ctx, self.opt, txn, &t, im).await?;
 				match PlanBuilder::build(node, self.with, with_indexes)? {
 					Plan::SingleIndex(exp, io) => {
+						if io.require_distinct() {
+							self.requires_distinct = true;
+						}
 						let ir = exe.add_iterator(IteratorEntry::Single(exp, io));
 						it.ingest(Iterable::Index(t.clone(), ir));
 						self.executors.insert(t.0.clone(), exe);

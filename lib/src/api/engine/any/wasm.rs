@@ -7,8 +7,9 @@ use crate::api::conn::Router;
 use crate::api::engine;
 use crate::api::engine::any::Any;
 use crate::api::err::Error;
-use crate::api::opt::Endpoint;
+use crate::api::opt::{Endpoint, EndpointKind};
 use crate::api::DbResponse;
+use crate::api::ExtraFeatures;
 use crate::api::OnceLockExt;
 use crate::api::Result;
 use crate::api::Surreal;
@@ -46,12 +47,13 @@ impl Connection for Any {
 			let (conn_tx, conn_rx) = flume::bounded::<Result<()>>(1);
 			let mut features = HashSet::new();
 
-			match address.url.scheme() {
-				"dynamodb" => {
+			match EndpointKind::from(address.url.scheme()) {
+				EndpointKind::DynamoDb => {
 					#[cfg(feature = "kv-dynamodb")]
 					{
-						engine::local::wasm::router(address, conn_tx, route_rx);
-						conn_rx.into_recv_async().await??;
+						features.insert(ExtraFeatures::LiveQueries);
+						engine::local::native::router(address, conn_tx, route_rx);
+						conn_rx.into_recv_async().await??
 					}
 
 					#[cfg(not(feature = "kv-dynamodb"))]
@@ -59,9 +61,11 @@ impl Connection for Any {
 						DbError::Ds("Cannot connect to the `dynamodb` storage engine as it is not enabled in this build of SurrealDB".to_owned()).into()
 					);
 				}
-				"fdb" => {
+
+				EndpointKind::FoundationDb => {
 					#[cfg(feature = "kv-fdb")]
 					{
+						features.insert(ExtraFeatures::LiveQueries);
 						engine::local::wasm::router(address, conn_tx, route_rx);
 						conn_rx.into_recv_async().await??;
 					}
@@ -72,9 +76,10 @@ impl Connection for Any {
 					);
 				}
 
-				"indxdb" => {
+				EndpointKind::IndxDb => {
 					#[cfg(feature = "kv-indxdb")]
 					{
+						features.insert(ExtraFeatures::LiveQueries);
 						engine::local::wasm::router(address, conn_tx, route_rx);
 						conn_rx.into_recv_async().await??;
 					}
@@ -85,9 +90,10 @@ impl Connection for Any {
 					);
 				}
 
-				"mem" => {
+				EndpointKind::Memory => {
 					#[cfg(feature = "kv-mem")]
 					{
+						features.insert(ExtraFeatures::LiveQueries);
 						engine::local::wasm::router(address, conn_tx, route_rx);
 						conn_rx.into_recv_async().await??;
 					}
@@ -98,9 +104,10 @@ impl Connection for Any {
 					);
 				}
 
-				"file" | "rocksdb" => {
+				EndpointKind::File | EndpointKind::RocksDb => {
 					#[cfg(feature = "kv-rocksdb")]
 					{
+						features.insert(ExtraFeatures::LiveQueries);
 						engine::local::wasm::router(address, conn_tx, route_rx);
 						conn_rx.into_recv_async().await??;
 					}
@@ -112,9 +119,10 @@ impl Connection for Any {
 					.into());
 				}
 
-				"speedb" => {
+				EndpointKind::SpeeDb => {
 					#[cfg(feature = "kv-speedb")]
 					{
+						features.insert(ExtraFeatures::LiveQueries);
 						engine::local::wasm::router(address, conn_tx, route_rx);
 						conn_rx.into_recv_async().await??;
 					}
@@ -126,9 +134,10 @@ impl Connection for Any {
 					.into());
 				}
 
-				"tikv" => {
+				EndpointKind::TiKv => {
 					#[cfg(feature = "kv-tikv")]
 					{
+						features.insert(ExtraFeatures::LiveQueries);
 						engine::local::wasm::router(address, conn_tx, route_rx);
 						conn_rx.into_recv_async().await??;
 					}
@@ -139,7 +148,7 @@ impl Connection for Any {
 					);
 				}
 
-				"http" | "https" => {
+				EndpointKind::Http | EndpointKind::Https => {
 					#[cfg(feature = "protocol-http")]
 					{
 						engine::remote::http::wasm::router(address, conn_tx, route_rx);
@@ -152,9 +161,10 @@ impl Connection for Any {
 					.into());
 				}
 
-				"ws" | "wss" => {
+				EndpointKind::Ws | EndpointKind::Wss => {
 					#[cfg(feature = "protocol-ws")]
 					{
+						features.insert(ExtraFeatures::LiveQueries);
 						let mut address = address;
 						address.url = address.url.join(engine::remote::ws::PATH)?;
 						engine::remote::ws::wasm::router(address, capacity, conn_tx, route_rx);
@@ -168,9 +178,7 @@ impl Connection for Any {
 					.into());
 				}
 
-				scheme => {
-					return Err(Error::Scheme(scheme.to_owned()).into());
-				}
+				EndpointKind::Unsupported(v) => return Err(Error::Scheme(v).into()),
 			}
 
 			Ok(Surreal {
