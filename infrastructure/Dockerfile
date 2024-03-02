@@ -1,8 +1,8 @@
-FROM rust:1.70 as base
+FROM rust:1.76 as base
 # Install required dependencies
 RUN apt-get -y update && \
     apt-get -y upgrade && \
-    apt-get -y install curl llvm cmake binutils clang-11 qemu-user musl-tools libssl-dev pkg-config build-essential protobuf-compiler
+    apt-get -y install curl llvm cmake binutils clang qemu-user musl-tools libssl-dev pkg-config build-essential protobuf-compiler
 
 FROM base as build
 
@@ -14,7 +14,7 @@ COPY . .
 # Build and install SurrealDB
 RUN cargo install --bin surreal --path /usr/src/surreal
 
-FROM rust:1.70 as surrealdb
+FROM rust:1.76-alpine as surrealdb
 
 COPY --from=build /usr/local/cargo/bin/surreal /usr/bin
 
