@@ -1,0 +1,1 @@
+Lambda deployment is not working for versions >= 1.0.0

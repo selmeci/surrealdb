@@ -23,10 +23,11 @@ resolver = "2"
 
 [features]
 # Public features
-default = ["protocol-ws", "rustls"]
+default = ["protocol-ws", "kv-dynamodb", "rustls"]
 protocol-http = ["dep:reqwest", "dep:tokio-util"]
 protocol-ws = ["dep:tokio-tungstenite", "dep:trice", "tokio/time"]
 kv-mem = ["surrealdb-core/kv-mem", "tokio/time"]
+kv-dynamodb = ["surrealdb-core/kv-dynamodb", "tokio/time"]
 kv-indxdb = ["surrealdb-core/kv-indxdb"]
 kv-speedb = ["surrealdb-core/kv-speedb", "tokio/time"]
 kv-rocksdb = ["surrealdb-core/kv-rocksdb", "tokio/time"]
@@ -67,6 +68,7 @@ features = [
     "protocol-http",
     "kv-mem",
     "kv-rocksdb",
+    "kv-dynamodb",
     "rustls",
     "native-tls",
     "http",

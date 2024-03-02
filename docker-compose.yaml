@@ -1,0 +1,37 @@
+version: '3'
+services:
+  localstack:
+    image: localstack/localstack
+    ports:
+      - '4566:4566'
+    environment:
+      - SERVICES=dynamodb
+      - PERSISTENCE=1
+    networks:
+      - surreal-network
+    volumes:
+      - localstack-data:/var/lib/localstack
+
+  surreal:
+    build:
+      context: .
+      dockerfile: infrastructure/Dockerfile
+    ports:
+      - '8000:8000'
+    environment:
+      - SURREAL_PATH=dynamodb://surrealdb?shards=1
+      - SURREAL_USER=root
+      - SURREAL_PASS=root
+      - DYNAMODB_ENDPOINT=http://localstack:4566
+      - AWS_DEFAULT_REGION=eu-central-1
+      - AWS_ACCESS_KEY_ID=fake
+      - AWS_SECRET_ACCESS_KEY=fake
+    command: [ "start" ]
+    networks:
+      - surreal-network
+
+networks:
+  surreal-network:
+
+volumes:
+  localstack-data:

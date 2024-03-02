@@ -62,6 +62,21 @@ impl Connection for Any {
 			let mut features = HashSet::new();
 
 			match EndpointKind::from(address.url.scheme()) {
+				EndpointKind::DynamoDb => {
+					#[cfg(feature = "kv-dynamodb")]
+					{
+						features.insert(ExtraFeatures::Backup);
+						features.insert(ExtraFeatures::LiveQueries);
+						engine::local::native::router(address, conn_tx, route_rx);
+						conn_rx.into_recv_async().await??
+					}
+
+					#[cfg(not(feature = "kv-dynamodb"))]
+					return Err(
+						DbError::Ds("Cannot connect to the `dynamodb` storage engine as it is not enabled in this build of SurrealDB".to_owned()).into()
+					);
+				}
+
 				EndpointKind::FoundationDb => {
 					#[cfg(feature = "kv-fdb")]
 					{

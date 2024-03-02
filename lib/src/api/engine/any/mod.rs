@@ -269,6 +269,9 @@ impl Surreal<Any> {
 /// // Instantiate an in-memory instance
 /// let db = connect("mem://").await?;
 ///
+/// // Instantiate a DynamoDB instance
+/// let db = connect("dynamodb://TableName?shards=2");
+///
 /// // Instantiate an file-backed instance (currently uses RocksDB)
 /// let db = connect("file://path/to/database-folder").await?;
 ///

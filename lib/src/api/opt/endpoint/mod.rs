@@ -16,6 +16,9 @@ mod speedb;
 #[cfg(feature = "kv-tikv")]
 mod tikv;
 
+#[cfg(feature = "kv-dynamodb")]
+mod dynamodb;
+
 use crate::api::err::Error;
 use crate::api::Connection;
 use crate::api::Result;
@@ -122,6 +125,7 @@ pub enum EndpointKind {
 	Https,
 	Ws,
 	Wss,
+	DynamoDb,
 	FoundationDb,
 	#[cfg(target_arch = "wasm32")]
 	IndxDb,
@@ -140,6 +144,7 @@ impl From<&str> for EndpointKind {
 			"https" => Self::Https,
 			"ws" => Self::Ws,
 			"wss" => Self::Wss,
+			"dynamodb" => Self::DynamoDb,
 			"fdb" => Self::FoundationDb,
 			#[cfg(target_arch = "wasm32")]
 			"indxdb" => Self::IndxDb,

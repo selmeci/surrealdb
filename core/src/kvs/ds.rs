@@ -122,6 +122,8 @@ pub(crate) type BootstrapOperationResult = (LqValue, Option<Error>);
 
 #[allow(clippy::large_enum_variant)]
 pub(super) enum Inner {
+	#[cfg(feature = "kv-dynamodb")]
+	DynamoDB(super::dynamodb::Datastore),
 	#[cfg(feature = "kv-mem")]
 	Mem(super::mem::Datastore),
 	#[cfg(feature = "kv-rocksdb")]
@@ -140,6 +142,8 @@ impl fmt::Display for Datastore {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		#![allow(unused_variables)]
 		match &self.inner {
+			#[cfg(feature = "kv-dynamodb")]
+			Inner::DynamoDB(_) => write!(f, "dynamodb"),
 			#[cfg(feature = "kv-mem")]
 			Inner::Mem(_) => write!(f, "memory"),
 			#[cfg(feature = "kv-rocksdb")]
@@ -196,6 +200,17 @@ impl Datastore {
 	/// # Ok(())
 	/// # }
 	/// ```
+	/// Or to connect to a dynamodb:
+	///
+	/// ```rust,no_run
+	/// # use surrealdb_core::kvs::Datastore;
+	/// # use surrealdb_core::err::Error;
+	/// # #[tokio::main]
+	/// # async fn main() -> Result<(), Error> {
+	/// let ds = Datastore::new("dynamodb://TableName?shard=2").await?;
+	/// # Ok(())
+	/// # }
+	/// ```
 	pub async fn new(path: &str) -> Result<Datastore, Error> {
 		Self::new_full_impl(path, None).await
 	}
@@ -224,7 +239,8 @@ impl Datastore {
 			feature = "kv-speedb",
 			feature = "kv-indxdb",
 			feature = "kv-tikv",
-			feature = "kv-fdb"
+			feature = "kv-fdb",
+			feature = "kv-dynamodb"
 		)))]
 		let _ = (clock_override, default_clock);
 
@@ -322,6 +338,25 @@ impl Datastore {
 				}
 				#[cfg(not(feature = "kv-tikv"))]
                 return Err(Error::Ds("Cannot connect to the `tikv` storage engine as it is not enabled in this build of SurrealDB".to_owned()));
+			}
+			// Parse and initiate a DynamoDb database
+			s if s.starts_with("dynamodb:") => {
+				#[cfg(feature = "kv-dynamodb")]
+				{
+					info!("Connecting to dynamodb store at {}", path);
+					let pattern = r"^dynamodb:/{1,2}([^?]+)(?:\?shards=(\d+))?$";
+					let re = regex::Regex::new(pattern).unwrap();
+					let captures = re.captures(s).expect("Invalid DynamoDB path");
+					let table = captures.get(1).unwrap().as_str().to_string();
+					let shards = captures.get(2).map_or(1, |m| m.as_str().parse().unwrap_or(1));
+					let v = super::dynamodb::Datastore::new(table,shards).await.map(Inner::DynamoDB);
+					info!("Connected to dynamodb store at {}", path);
+					let default_clock = Arc::new(SizedClock::System(SystemClock::new()));
+					let clock = clock_override.unwrap_or(default_clock);
+					Ok((v, clock))
+				}
+				#[cfg(not(feature = "kv-dynamodb"))]
+				return Err(Error::Ds("Cannot connect to the `dynamodb` storage engine as it is not enabled in this build of SurrealDB".to_owned()));
 			}
 			// Parse and initiate a FoundationDB database
 			s if s.starts_with("fdb:") => {
@@ -948,6 +983,11 @@ impl Datastore {
 		};
 
 		let inner = match &self.inner {
+			#[cfg(feature = "kv-dynamodb")]
+			Inner::DynamoDB(v) => {
+				let tx = v.transaction(write, lock).await?;
+				super::tx::Inner::DynamoDb(tx)
+			}
 			#[cfg(feature = "kv-mem")]
 			Inner::Mem(v) => {
 				let tx = v.transaction(write, lock).await?;

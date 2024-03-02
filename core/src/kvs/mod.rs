@@ -11,6 +11,7 @@
 //! - `rocksdb`: [RocksDB](https://github.com/facebook/rocksdb) an embeddable persistent key-value store for fast storage
 //! - `speedb`: [SpeedyDB](https://github.com/speedb-io/speedb) fork of rocksDB making it faster (Redis is using speedb but this is not acid transactions)
 //! - `tikv`: [TiKV](https://github.com/tikv/tikv) a distributed, and transactional key-value database
+//! - `dynamodb`: [DynamoDb](https://aws.amazon.com/dynamodb/) a Serverless, NoSQL, fully managed database with single-digit millisecond performance at any scale
 //! - `mem`: in-memory database
 mod cache;
 mod ds;
@@ -22,6 +23,7 @@ mod rocksdb;
 mod speedb;
 mod tikv;
 mod tx;
+mod dynamodb;
 
 mod clock;
 #[cfg(test)]
@@ -31,7 +33,8 @@ mod clock;
 	feature = "kv-speedb",
 	feature = "kv-indxdb",
 	feature = "kv-tikv",
-	feature = "kv-fdb"
+	feature = "kv-fdb",
+	feature = "kv-dynamodb"
 ))]
 mod tests;
 

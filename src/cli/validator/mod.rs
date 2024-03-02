@@ -17,6 +17,7 @@ pub(crate) fn path_valid(v: &str) -> Result<String, String> {
 		v if v.starts_with("speedb:") => Ok(v.to_string()),
 		v if v.starts_with("tikv:") => Ok(v.to_string()),
 		v if v.starts_with("fdb:") => Ok(v.to_string()),
+		v if v.starts_with("dynamodb:") => Ok(v.to_string()),
 		_ => Err(String::from("Provide a valid database path parameter")),
 	}
 }
@@ -45,9 +46,8 @@ pub(crate) fn endpoint_valid(v: &str) -> Result<String, String> {
 
 	let scheme = split_endpoint(v).0;
 	match scheme {
-		"http" | "https" | "ws" | "wss" | "fdb" | "mem" | "rocksdb" | "file" | "tikv" => {
-			Ok(v.to_string())
-		}
+		"http" | "https" | "ws" | "wss" | "fdb" | "mem" | "rocksdb" | "file" | "tikv"
+		| "dynamodb" => Ok(v.to_string()),
 		_ => Err(String::from("Provide a valid database connection string")),
 	}
 }

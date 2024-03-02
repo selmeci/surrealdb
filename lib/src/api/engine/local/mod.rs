@@ -336,6 +336,43 @@ pub struct IndxDb;
 #[derive(Debug)]
 pub struct TiKv;
 
+/// DynamoDb database
+///
+/// # Examples
+///
+/// Instantiating a DynamoDb instance
+///
+/// ```no_run
+/// # #[tokio::main]
+/// # async fn main() -> surrealdb::Result<()> {
+/// use surrealdb::Surreal;
+/// use surrealdb::engine::local::DynamoDb;
+///
+/// let db = Surreal::new::<DynamoDb>("TableName?shards=2").await?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Instantiating a TiKV strict instance
+///
+/// ```no_run
+/// # #[tokio::main]
+/// # async fn main() -> surrealdb::Result<()> {
+/// use surrealdb::opt::Config;
+/// use surrealdb::Surreal;
+/// use surrealdb::engine::local::DynamoDb;
+///
+/// let config = Config::default().strict();
+/// let db = Surreal::new::<DynamoDb>(("TableName?shards=2", config)).await?;
+/// # Ok(())
+/// # }
+/// ```
+#[cfg(feature = "kv-dynamodb")]
+#[cfg_attr(docsrs, doc(cfg(feature = "kv-dynamodb")))]
+#[derive(Debug)]
+pub struct DynamoDb;
+
+
 /// FoundationDB database
 ///
 /// # Examples
