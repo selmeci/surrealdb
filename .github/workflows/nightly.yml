@@ -17,8 +17,6 @@ on:
         type: boolean
         default: false
         description: "Publish the nightly release"
-  schedule:
-    - cron: '0 0 * * *'
 
 defaults:
   run:
